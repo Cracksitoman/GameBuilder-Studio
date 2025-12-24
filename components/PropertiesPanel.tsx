@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { GameObject, ObjectType, BehaviorType, Behavior, AnimationClip, Variable, VariableType, Asset, EditorTool } from '../types';
-import { Layers, Move, Type, MousePointer2, X, Zap, Trash2, Activity, RotateCw, Plus, BrickWall, Compass, Crosshair, Magnet, Film, ImagePlus, ChevronDown, ChevronUp, Grid3x3, Hash, ToggleLeft, Variable as VariableIcon, Link2, Grid, Paintbrush, Eraser } from './Icons';
+import { Layers, Move, Type, MousePointer2, X, Zap, Trash2, Activity, RotateCw, Plus, BrickWall, Compass, Crosshair, Magnet, Film, ImagePlus, ChevronDown, ChevronUp, Grid3x3, Hash, ToggleLeft, Variable as VariableIcon, Link2, Grid, Paintbrush, Eraser, MonitorSmartphone } from './Icons';
 
 interface PropertiesPanelProps {
   selectedObject: GameObject | null;
@@ -470,26 +470,53 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
 
         <div className="h-px bg-gray-800"></div>
 
-        {/* --- PHYSICS / COLLISION SECTION --- */}
-        <div className="bg-gray-800/50 rounded-lg p-3 border border-gray-800">
-           <label className="flex items-center justify-between cursor-pointer group">
-             <div className="flex items-center">
-               <BrickWall className="w-4 h-4 mr-2 text-orange-400" />
-               <span className="text-xs font-bold text-gray-300">Es Obstáculo</span>
-             </div>
-             <div className="relative">
-               <input 
-                  type="checkbox" 
-                  checked={selectedObject.isObstacle || false} 
-                  onChange={() => handleToggle('isObstacle')}
-                  className="sr-only peer"
-               />
-               <div className="w-9 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-orange-600"></div>
-             </div>
-           </label>
-           <p className="text-[10px] text-gray-500 mt-2">
-             Si está activo, los personajes colisionarán con este objeto.
-           </p>
+        {/* --- SETTINGS / FLAGS SECTION --- */}
+        <div className="space-y-3">
+            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Ajustes</h3>
+            
+            {/* IS OBSTACLE TOGGLE */}
+            <div className="bg-gray-800/50 rounded-lg p-3 border border-gray-800">
+                <label className="flex items-center justify-between cursor-pointer group">
+                    <div className="flex items-center">
+                    <BrickWall className="w-4 h-4 mr-2 text-orange-400" />
+                    <span className="text-xs font-bold text-gray-300">Es Obstáculo</span>
+                    </div>
+                    <div className="relative">
+                    <input 
+                        type="checkbox" 
+                        checked={selectedObject.isObstacle || false} 
+                        onChange={() => handleToggle('isObstacle')}
+                        className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-orange-600"></div>
+                    </div>
+                </label>
+                <p className="text-[10px] text-gray-500 mt-2">
+                    Si está activo, los personajes colisionarán con este objeto.
+                </p>
+            </div>
+
+            {/* IS GUI TOGGLE */}
+            <div className="bg-gray-800/50 rounded-lg p-3 border border-gray-800">
+                <label className="flex items-center justify-between cursor-pointer group">
+                    <div className="flex items-center">
+                    <MonitorSmartphone className="w-4 h-4 mr-2 text-teal-400" />
+                    <span className="text-xs font-bold text-gray-300">Fijar a Cámara (GUI)</span>
+                    </div>
+                    <div className="relative">
+                    <input 
+                        type="checkbox" 
+                        checked={selectedObject.isGui || false} 
+                        onChange={() => handleToggle('isGui')}
+                        className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-teal-600"></div>
+                    </div>
+                </label>
+                <p className="text-[10px] text-gray-500 mt-2">
+                    El objeto se moverá con la cámara (Ej: HUD, Vidas, Botones).
+                </p>
+            </div>
         </div>
 
         <div className="h-px bg-gray-800"></div>

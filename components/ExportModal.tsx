@@ -76,6 +76,19 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, gameD
             transform-origin: center center;
         }
 
+        /* LAYERS */
+        #world-layer {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            will-change: transform;
+        }
+        
+        #gui-layer {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; /* Let touches pass to controls if necessary */
+        }
+
         .obj { 
             position: absolute; 
             will-change: transform, left, top;
@@ -251,7 +264,10 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, gameD
 
     <!-- GAME CONTAINER -->
     <div id="game-wrapper">
-        <div id="stage-area"></div>
+        <div id="stage-area">
+            <div id="world-layer"></div>
+            <div id="gui-layer"></div>
+        </div>
     </div>
 
     <!-- CONTROLS -->
@@ -281,6 +297,8 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, gameD
         
         // --- VARIABLES ---
         const container = document.getElementById('stage-area');
+        const worldLayer = document.getElementById('world-layer');
+        const guiLayer = document.getElementById('gui-layer');
         const uiLayer = document.getElementById('ui-layer');
         const startScreen = document.getElementById('start-screen');
         const rotateMsg = document.getElementById('rotate-msg');
@@ -305,6 +323,10 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, gameD
             animTimer: 0,
             flipX: false
         }));
+        
+        // Camera State
+        let cameraX = 0;
+        let cameraY = 0;
         
         const inputs = { left: false, right: false, up: false, down: false, action: false };
         let lastTime = performance.now();
@@ -393,13 +415,18 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, gameD
                      span.className = 'debug-text';
                      span.style.color = 'white';
                      span.innerText = obj.type[0];
-                     // span.style.display = 'none'; // Will hide if anim active
                      el.appendChild(span);
                 }
 
                 if (!obj.visible) el.style.display = 'none';
 
-                container.appendChild(el);
+                // APPEND TO CORRECT LAYER
+                if (obj.isGui) {
+                    guiLayer.appendChild(el);
+                } else {
+                    worldLayer.appendChild(el);
+                }
+                
                 objectElements[obj.id] = el;
             });
 
@@ -738,6 +765,21 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, gameD
                     }
                 }
             });
+            
+            // CAMERA FOLLOW LOGIC
+            // Simple camera for Export (follows PLAYER by default if available)
+            if (playerObj) {
+                // Center player
+                const tx = (playerObj.x + playerObj.width/2) - width/2;
+                const ty = (playerObj.y + playerObj.height/2) - height/2;
+                
+                // Lerp
+                cameraX += (tx - cameraX) * 0.1;
+                cameraY += (ty - cameraY) * 0.1;
+                
+                // Apply to WORLD LAYER ONLY
+                worldLayer.style.transform = 'translate(' + (-cameraX) + 'px, ' + (-cameraY) + 'px)';
+            }
 
             requestAnimationFrame(loop);
         }

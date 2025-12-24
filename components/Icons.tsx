@@ -70,7 +70,8 @@ import {
   Variable, 
   Link2,
   Clapperboard,
-  Grid // New
+  Grid,
+  Video // New
 } from 'lucide-react';
 
 export {
@@ -144,5 +145,6 @@ export {
   Variable,
   Link2,
   Clapperboard,
-  Grid
+  Grid,
+  Video
 };

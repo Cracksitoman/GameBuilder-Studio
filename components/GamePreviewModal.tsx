@@ -38,6 +38,10 @@ export const GamePreviewModal: React.FC<GamePreviewModalProps> = ({
   const [showControls, setShowControls] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   
+  // Camera State
+  const [cameraPos, setCameraPos] = useState({ x: 0, y: 0 });
+  const cameraRef = useRef({ x: 0, y: 0, targetId: null as string | null, smooth: true, speed: 0.1 });
+
   const [inputs, setInputs] = useState({ left: false, right: false, up: false, down: false, action: false });
   const inputsRef = useRef({ left: false, right: false, up: false, down: false, action: false });
   
@@ -75,6 +79,9 @@ export const GamePreviewModal: React.FC<GamePreviewModalProps> = ({
       const scene = scenes.find(s => s.id === sceneId);
       if (!scene) return;
 
+      // 1. Setup Camera Configuration
+      const camConfig = scene.camera || { targetObjectId: null, smooth: true, followSpeed: 0.1 };
+      
       // 2. Prepare Objects for this scene
       const initialSimObjects = scene.objects.map(obj => {
           const localsMap: Record<string, any> = {};
@@ -104,11 +111,32 @@ export const GamePreviewModal: React.FC<GamePreviewModalProps> = ({
       const hasTopDown = scene.objects.some(obj => obj.behaviors?.some(b => b.type === BehaviorType.TOPDOWN));
       setShowControls(hasPlatformer || hasTopDown);
 
-      // 4. Reset Inputs (Optional, usually good to reset)
+      // 4. Initial Camera Position Calculation (Immediate Snap)
+      let startX = 0;
+      let startY = 0;
+      if (camConfig.targetObjectId) {
+          const target = initialSimObjects.find(o => o.id === camConfig.targetObjectId);
+          if (target) {
+              startX = (target.x + target.width / 2) - (canvasConfig.width / 2);
+              startY = (target.y + target.height / 2) - (canvasConfig.height / 2);
+          }
+      }
+      
+      // Set ref and state immediately so first render is correct
+      cameraRef.current = { 
+          x: startX, 
+          y: startY, 
+          targetId: camConfig.targetObjectId, 
+          smooth: camConfig.smooth, 
+          speed: camConfig.followSpeed 
+      };
+      setCameraPos({ x: startX, y: startY });
+
+      // 5. Reset Inputs
       inputsRef.current = { left: false, right: false, up: false, down: false, action: false };
       setInputs({ left: false, right: false, up: false, down: false, action: false });
 
-      // 5. Run Start of Scene Events
+      // 6. Run Start of Scene Events
       runStartEvents(initialSimObjects);
   };
 
@@ -431,7 +459,36 @@ export const GamePreviewModal: React.FC<GamePreviewModalProps> = ({
       return { ...obj, x, y, vx, vy, rotation, isGrounded, flipX };
     });
 
-    // --- 2. OBJECT-ORIENTED EVENT SYSTEM EXECUTION ---
+    // --- 2. CAMERA UPDATE LOGIC ---
+    if (cameraRef.current.targetId) {
+        const target = nextObjects.find(o => o.id === cameraRef.current.targetId);
+        if (target) {
+            // Target center
+            const tx = (target.x + target.width / 2) - (canvasConfig.width / 2);
+            const ty = (target.y + target.height / 2) - (canvasConfig.height / 2);
+            
+            if (cameraRef.current.smooth) {
+                const lerp = cameraRef.current.speed;
+                // Smooth Lerp
+                cameraRef.current.x += (tx - cameraRef.current.x) * lerp;
+                cameraRef.current.y += (ty - cameraRef.current.y) * lerp;
+            } else {
+                cameraRef.current.x = tx;
+                cameraRef.current.y = ty;
+            }
+            // Update React state for render
+            setCameraPos({ x: cameraRef.current.x, y: cameraRef.current.y });
+        }
+    } else {
+        // No target, static at 0,0
+        if (cameraRef.current.x !== 0 || cameraRef.current.y !== 0) {
+             cameraRef.current.x = 0;
+             cameraRef.current.y = 0;
+             setCameraPos({ x: 0, y: 0 });
+        }
+    }
+
+    // --- 3. OBJECT-ORIENTED EVENT SYSTEM EXECUTION ---
     nextObjects.forEach(obj => {
         if (!obj.events || obj.events.length === 0) return;
 
@@ -544,6 +601,96 @@ export const GamePreviewModal: React.FC<GamePreviewModalProps> = ({
       return frame ? frame.imageUrl : null;
   };
 
+  // --- RENDERING HELPERS ---
+  const renderSimObject = (obj: SimObject) => {
+        const imgUrl = getRenderInfo(obj);
+        const isTilemap = obj.type === ObjectType.TILEMAP;
+        
+        let displayText = obj.name;
+        if (obj.type === ObjectType.TEXT && obj.textBinding) {
+            const { source, variableId, targetObjectId, prefix = '', suffix = '' } = obj.textBinding;
+            let val: any;
+
+            if (source === 'GLOBAL') {
+                val = globalsRef.current[variableId];
+            } else if (source === 'LOCAL') {
+                val = obj.localVars[variableId];
+            } else if (source === 'OBJECT' && targetObjectId) {
+                const targetObj = simObjects.find(o => o.id === targetObjectId);
+                if (targetObj) {
+                    val = targetObj.localVars[variableId];
+                }
+            }
+
+            if (val !== undefined) {
+                displayText = `${prefix}${val}${suffix}`;
+            }
+        }
+
+        return (
+            <div
+            key={obj.id}
+            style={{
+                position: 'absolute',
+                left: `${obj.x}px`,
+                top: `${obj.y}px`,
+                width: `${obj.width}px`,
+                height: `${obj.height}px`,
+                transform: `rotate(${obj.rotation}deg) scaleX(${obj.flipX ? -1 : 1})`,
+                zIndex: obj.zIndex,
+                opacity: obj.opacity,
+                backgroundColor: (!imgUrl && obj.type !== ObjectType.TEXT && !isTilemap) ? obj.color : undefined,
+                imageRendering: 'pixelated',
+                display: obj.visible ? 'block' : 'none',
+                backgroundSize: 'contain',
+                backgroundRepeat: 'no-repeat',
+                backgroundPosition: 'center',
+                backgroundImage: (!isTilemap && imgUrl) ? `url(${imgUrl})` : undefined
+            }}
+            >
+            {obj.type === ObjectType.TEXT ? (
+                <div style={{color: obj.color, transform: `scaleX(${obj.flipX ? -1 : 1})`}} className="w-full h-full flex items-center justify-center font-sans whitespace-nowrap">
+                {displayText}
+                </div>
+            ) : isTilemap ? (
+                // RUNTIME TILEMAP RENDERER
+                <div className="w-full h-full relative">
+                    {obj.tilemap && Object.entries(obj.tilemap.tiles).map(([key, data]) => {
+                        const [gx, gy] = key.split(',').map(Number);
+                        const tileSize = obj.tilemap?.tileSize || 32;
+                        // Handle legacy string vs new object
+                        const assetId = typeof data === 'string' ? data : (data as any).url;
+                        
+                        return (
+                            <div 
+                                key={key}
+                                style={{
+                                    position: 'absolute',
+                                    left: gx * tileSize,
+                                    top: gy * tileSize,
+                                    width: tileSize,
+                                    height: tileSize,
+                                    backgroundImage: `url(${assetId})`,
+                                    backgroundSize: 'contain',
+                                    backgroundRepeat: 'no-repeat'
+                                }}
+                            />
+                        );
+                    })}
+                </div>
+            ) : (
+                !imgUrl && (
+                    <div className="w-full h-full flex items-center justify-center">
+                        {(obj.type === ObjectType.PLAYER || obj.type === ObjectType.ENEMY) && (
+                            <span className="text-white text-[10px] font-bold opacity-80">{obj.type[0]}</span>
+                        )}
+                    </div>
+                )
+            )}
+            </div>
+        );
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -579,106 +726,32 @@ export const GamePreviewModal: React.FC<GamePreviewModalProps> = ({
                        transformOrigin: 'center center'
                     }}
                  >
-                     {simObjects.map(obj => {
-                        const imgUrl = getRenderInfo(obj);
-                        const isTilemap = obj.type === ObjectType.TILEMAP;
-                        
-                        let displayText = obj.name;
-                        if (obj.type === ObjectType.TEXT && obj.textBinding) {
-                            const { source, variableId, targetObjectId, prefix = '', suffix = '' } = obj.textBinding;
-                            let val: any;
+                     {/* 1. WORLD CONTAINER MOVES WITH CAMERA (Non-GUI objects) */}
+                     <div style={{ 
+                         transform: `translate(${-cameraPos.x}px, ${-cameraPos.y}px)`,
+                         width: '100%', height: '100%',
+                         willChange: 'transform'
+                     }}>
+                         {simObjects.filter(obj => !obj.isGui).map(renderSimObject)}
+                     </div>
 
-                            if (source === 'GLOBAL') {
-                                val = globalsRef.current[variableId];
-                            } else if (source === 'LOCAL') {
-                                val = obj.localVars[variableId];
-                            } else if (source === 'OBJECT' && targetObjectId) {
-                                const targetObj = simObjects.find(o => o.id === targetObjectId);
-                                if (targetObj) {
-                                    val = targetObj.localVars[variableId];
-                                }
-                            }
-
-                            if (val !== undefined) {
-                                displayText = `${prefix}${val}${suffix}`;
-                            }
-                        }
-
-                        return (
-                            <div
-                            key={obj.id}
-                            style={{
-                                position: 'absolute',
-                                left: `${obj.x}px`,
-                                top: `${obj.y}px`,
-                                width: `${obj.width}px`,
-                                height: `${obj.height}px`,
-                                transform: `rotate(${obj.rotation}deg) scaleX(${obj.flipX ? -1 : 1})`,
-                                zIndex: obj.zIndex,
-                                opacity: obj.opacity,
-                                backgroundColor: (!imgUrl && obj.type !== ObjectType.TEXT && !isTilemap) ? obj.color : undefined,
-                                imageRendering: 'pixelated',
-                                display: obj.visible ? 'block' : 'none',
-                                backgroundSize: 'contain',
-                                backgroundRepeat: 'no-repeat',
-                                backgroundPosition: 'center',
-                                backgroundImage: (!isTilemap && imgUrl) ? `url(${imgUrl})` : undefined
-                            }}
-                            >
-                            {obj.type === ObjectType.TEXT ? (
-                                <div style={{color: obj.color, transform: `scaleX(${obj.flipX ? -1 : 1})`}} className="w-full h-full flex items-center justify-center font-sans whitespace-nowrap">
-                                {displayText}
-                                </div>
-                            ) : isTilemap ? (
-                                // RUNTIME TILEMAP RENDERER
-                                <div className="w-full h-full relative">
-                                    {obj.tilemap && Object.entries(obj.tilemap.tiles).map(([key, data]) => {
-                                        const [gx, gy] = key.split(',').map(Number);
-                                        const tileSize = obj.tilemap?.tileSize || 32;
-                                        // Handle legacy string vs new object
-                                        const assetId = typeof data === 'string' ? data : (data as any).url;
-                                        
-                                        return (
-                                            <div 
-                                                key={key}
-                                                style={{
-                                                    position: 'absolute',
-                                                    left: gx * tileSize,
-                                                    top: gy * tileSize,
-                                                    width: tileSize,
-                                                    height: tileSize,
-                                                    backgroundImage: `url(${assetId})`,
-                                                    backgroundSize: 'contain',
-                                                    backgroundRepeat: 'no-repeat'
-                                                }}
-                                            />
-                                        );
-                                    })}
-                                </div>
-                            ) : (
-                                !imgUrl && (
-                                    <div className="w-full h-full flex items-center justify-center">
-                                        {(obj.type === ObjectType.PLAYER || obj.type === ObjectType.ENEMY) && (
-                                            <span className="text-white text-[10px] font-bold opacity-80">{obj.type[0]}</span>
-                                        )}
-                                    </div>
-                                )
-                            )}
-                            </div>
-                        );
-                     })}
+                     {/* 2. GUI CONTAINER STATIC (GUI objects) */}
+                     <div className="absolute inset-0 pointer-events-none">
+                         {simObjects.filter(obj => obj.isGui).map(renderSimObject)}
+                     </div>
                  </div>
             </div>
         </div>
       </div>
 
-      {/* Floating UI Layer */}
+      {/* Floating UI Layer (Debug Info and Mobile Controls) */}
       <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-4 sm:p-6 z-[110]">
          <div className="flex justify-between items-start pointer-events-auto">
              <div className="bg-black/50 text-white p-2 rounded text-[10px] font-mono backdrop-blur pointer-events-none opacity-50 hover:opacity-100 transition-opacity">
                  {Object.entries(globalsRef.current).map(([key, val]) => (
                      <div key={key}>{key}: {String(val)}</div>
                  ))}
+                 <div className="mt-1 pt-1 border-t border-white/20">Cam: {Math.round(cameraPos.x)},{Math.round(cameraPos.y)}</div>
              </div>
 
             <button 
@@ -707,4 +780,4 @@ export const GamePreviewModal: React.FC<GamePreviewModalProps> = ({
       </div>
     </div>
   );
-}
+};

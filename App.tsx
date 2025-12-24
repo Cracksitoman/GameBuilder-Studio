@@ -13,7 +13,8 @@ import { StartScreen } from './components/StartScreen';
 import { EventSheet } from './components/EventSheet'; 
 import { VariableManagerModal } from './components/VariableManagerModal'; 
 import { SceneManagerModal } from './components/SceneManagerModal'; 
-import { GameObject, ObjectType, EditorTool, CanvasConfig, Layer, Asset, Variable, Scene } from './types';
+import { CameraSettingsModal } from './components/CameraSettingsModal'; // New Import
+import { GameObject, ObjectType, EditorTool, CanvasConfig, Layer, Asset, Variable, Scene, CameraConfig } from './types';
 import { Layers, Plus, Settings, Play, Box, Move, Maximize, Hand, ArrowRight, Layout, Workflow, Grid3x3, Menu, ChevronLeft } from './components/Icons';
 
 // Helper to create object with layer
@@ -140,6 +141,7 @@ export const App: React.FC = () => {
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   const [isVarManagerOpen, setIsVarManagerOpen] = useState(false); 
   const [isSceneManagerOpen, setIsSceneManagerOpen] = useState(false); 
+  const [isCameraModalOpen, setIsCameraModalOpen] = useState(false); // New State
   
   const [assetSelectCallback, setAssetSelectCallback] = useState<((url: string) => void) | null>(null);
 
@@ -148,6 +150,9 @@ export const App: React.FC = () => {
   const objects = currentScene ? currentScene.objects : [];
   const layers = currentScene ? currentScene.layers : [];
   const selectedObject = objects.find(o => o.id === selectedObjectId) || null;
+  
+  // Default camera if not present in scene
+  const cameraConfig = currentScene?.camera || { targetObjectId: null, smooth: true, followSpeed: 0.1 };
 
   // Ensure activeLayerId is valid when scene changes
   useEffect(() => {
@@ -170,6 +175,10 @@ export const App: React.FC = () => {
       const newObjects = currentScene.objects.map(obj => obj.id === id ? { ...obj, ...updates } : obj);
       updateCurrentScene({ objects: newObjects });
   };
+  
+  const handleUpdateCamera = (config: CameraConfig) => {
+      updateCurrentScene({ camera: config });
+  };
 
   // --- START SCREEN HANDLERS ---
   const handleNewProject = () => {
@@ -180,7 +189,8 @@ export const App: React.FC = () => {
           name: 'Escena 1',
           backgroundColor: '#111827',
           objects: [],
-          layers: [{ id: firstLayerId, name: 'Capa Base', visible: true, locked: false }]
+          layers: [{ id: firstLayerId, name: 'Capa Base', visible: true, locked: false }],
+          camera: { targetObjectId: null, smooth: true, followSpeed: 0.1 }
       };
 
       setScenes([initialScene]);
@@ -278,7 +288,8 @@ export const App: React.FC = () => {
           name: name,
           objects: [],
           layers: [{ id: newLayerId, name: 'Capa Base', visible: true, locked: false }],
-          backgroundColor: '#111827'
+          backgroundColor: '#111827',
+          camera: { targetObjectId: null, smooth: true, followSpeed: 0.1 }
       };
       setScenes(prev => [...prev, newScene]);
       setCurrentSceneId(newScene.id); 
@@ -470,6 +481,7 @@ export const App: React.FC = () => {
           onOpenAssets={() => handleOpenAssetManager()}
           onOpenVariables={() => setIsVarManagerOpen(true)}
           onOpenScenes={() => setIsSceneManagerOpen(true)}
+          onOpenCamera={() => setIsCameraModalOpen(true)} // Open Camera Modal
           canvasConfig={canvasConfig}
           onToggleOrientation={handleToggleOrientation}
         />
@@ -560,6 +572,7 @@ export const App: React.FC = () => {
                         activeLayerId={activeLayerId} // Pass active layer
                         assets={assets} 
                         canvasConfig={canvasConfig}
+                        cameraConfig={cameraConfig} // Pass Camera Config
                         onSelectObject={handleSelectObject}
                         onUpdateObject={handleUpdateObject}
                         onEditObject={handleEditObject}
@@ -651,6 +664,14 @@ export const App: React.FC = () => {
         onAddScene={handleAddScene}
         onRenameScene={handleRenameScene}
         onDeleteScene={handleDeleteScene}
+      />
+      
+      <CameraSettingsModal 
+        isOpen={isCameraModalOpen}
+        onClose={() => setIsCameraModalOpen(false)}
+        objects={objects}
+        cameraConfig={cameraConfig}
+        onUpdateCamera={handleUpdateCamera}
       />
 
       <SaveProjectModal

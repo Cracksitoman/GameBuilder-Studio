@@ -132,6 +132,8 @@ export interface GameObject {
   previewSpriteUrl?: string; // New: Holds the static sprite for the editor
   // Physics properties
   isObstacle: boolean; // New: If true, other objects collide with this
+  // GUI Property
+  isGui?: boolean; // New: If true, object is fixed to camera
   // List of attached behaviors
   behaviors: Behavior[]; 
   // Object Specific Events
@@ -144,12 +146,19 @@ export interface GameObject {
   tilemap?: TilemapData;
 }
 
+export interface CameraConfig {
+    targetObjectId: string | null; // ID of object to follow, or null for static 0,0
+    smooth: boolean;
+    followSpeed: number; // 0-1 lerp factor
+}
+
 export interface Scene {
   id: string;
   name: string;
   objects: GameObject[];
   layers: Layer[]; // Layers are now per-scene
   backgroundColor: string;
+  camera?: CameraConfig; // New Camera settings
 }
 
 export interface CanvasConfig {

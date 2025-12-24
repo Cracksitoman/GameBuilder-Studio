@@ -1,5 +1,5 @@
 import React from 'react';
-import { Play, Save, MonitorSmartphone, Settings, Smartphone, Share2, Grid3x3, Variable, Clapperboard } from './Icons';
+import { Play, Save, MonitorSmartphone, Settings, Smartphone, Share2, Grid3x3, Variable, Clapperboard, Video } from './Icons';
 import { CanvasConfig } from '../types';
 
 interface NavbarProps {
@@ -9,6 +9,7 @@ interface NavbarProps {
   onOpenAssets: () => void;
   onOpenVariables: () => void;
   onOpenScenes: () => void; // New
+  onOpenCamera: () => void; // New
   canvasConfig: CanvasConfig;
   onToggleOrientation: () => void;
 }
@@ -20,6 +21,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenAssets, 
   onOpenVariables,
   onOpenScenes,
+  onOpenCamera,
   canvasConfig, 
   onToggleOrientation 
 }) => {
@@ -41,6 +43,16 @@ export const Navbar: React.FC<NavbarProps> = ({
         >
           <Clapperboard className="w-4 h-4 text-orange-400" />
           <span className="hidden lg:inline">Escenas</span>
+        </button>
+
+        {/* Camera Button */}
+        <button 
+          onClick={onOpenCamera}
+          className="flex items-center space-x-2 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded text-xs text-gray-300 transition-colors"
+          title="Ajustes de Cámara"
+        >
+          <Video className="w-4 h-4 text-cyan-400" />
+          <span className="hidden lg:inline">Cámara</span>
         </button>
 
         {/* Assets Button */}

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { GameObject, ObjectType, EditorTool, CanvasConfig, Layer, Asset } from '../types';
-import { ZoomIn, ZoomOut, ArrowRight, ArrowDown } from './Icons';
+import { ZoomIn, ZoomOut, ArrowRight, ArrowDown, Video, MonitorSmartphone } from './Icons';
 
 interface CanvasProps {
   objects: GameObject[];
@@ -12,6 +12,7 @@ interface CanvasProps {
   activeLayerId?: string | null; // NEW: Active Layer Check
   assets?: Asset[]; 
   canvasConfig: CanvasConfig;
+  cameraConfig?: { targetObjectId: string | null }; // NEW: Camera visualizer
   onSelectObject: (id: string | null) => void;
   onUpdateObject: (id: string, updates: Partial<GameObject>) => void;
   onEditObject: (obj: GameObject) => void;
@@ -29,6 +30,7 @@ export const Canvas: React.FC<CanvasProps> = ({
   brushSolid,
   activeLayerId,
   canvasConfig,
+  cameraConfig,
   onSelectObject,
   onUpdateObject,
   onEditObject
@@ -45,6 +47,25 @@ export const Canvas: React.FC<CanvasProps> = ({
          setZoom(0.8);
      }
   }, [canvasConfig.mode]);
+
+  // --- CAMERA VISUALIZER HELPER ---
+  const getCameraRect = () => {
+      let x = 0;
+      let y = 0;
+      
+      if (cameraConfig?.targetObjectId) {
+          const target = objects.find(o => o.id === cameraConfig.targetObjectId);
+          if (target) {
+              // Center camera on target
+              x = (target.x + target.width / 2) - (canvasConfig.width / 2);
+              y = (target.y + target.height / 2) - (canvasConfig.height / 2);
+          }
+      }
+      return { x, y, w: canvasConfig.width, h: canvasConfig.height };
+  };
+
+  const cameraRect = getCameraRect();
+
 
   // --- TILEMAP PAINTING HELPERS ---
   const handleTilePaint = (e: React.PointerEvent, obj: GameObject) => {
@@ -249,7 +270,6 @@ export const Canvas: React.FC<CanvasProps> = ({
       backgroundSize: '100% 100%', 
       backgroundRepeat: 'no-repeat',
       backgroundPosition: 'center',
-      // overflow: 'hidden' <--- REMOVED TO FIX ARROWS
     };
 
     return (
@@ -331,6 +351,14 @@ export const Canvas: React.FC<CanvasProps> = ({
                </div>
             )}
         </div>
+        
+        {/* Visual Indicator for GUI Elements */}
+        {obj.isGui && (
+            <div className="absolute top-0 right-0 p-0.5 bg-teal-900 rounded-bl text-teal-300 pointer-events-none" style={{transform: 'scale(0.8) origin(top right)'}}>
+                <MonitorSmartphone className="w-3 h-3" />
+            </div>
+        )}
+
         {isSelected && !isLocked && isOnActiveLayer && !isPainting && renderGizmos(obj)}
       </div>
     );
@@ -385,10 +413,17 @@ export const Canvas: React.FC<CanvasProps> = ({
              transformOrigin: 'center center'
            }}
         >
-          {/* THE GAME RESOLUTION BOX (Dynamic Size) */}
+          {/* THE GAME RESOLUTION BOX (World Bounds / Stage) */}
           <div 
-             className="relative bg-black border-4 border-black shadow-[0_0_50px_-12px_rgba(0,0,0,0.7)] transition-all duration-300"
-             style={{ width: `${canvasConfig.width}px`, height: `${canvasConfig.height}px` }}
+             className="absolute bg-black shadow-2xl"
+             style={{ 
+                 left: 0, 
+                 top: 0, 
+                 width: `${canvasConfig.width}px`, 
+                 height: `${canvasConfig.height}px`,
+                 // World bounds should always be visible (no opacity dimming)
+                 border: '1px dashed #374151'
+             }}
           >
               <div className="absolute inset-0 pointer-events-none opacity-20" 
                   style={{backgroundImage: 'linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)', backgroundSize: '50px 50px'}}>
@@ -396,20 +431,38 @@ export const Canvas: React.FC<CanvasProps> = ({
 
               {/* RENDER OBJECTS BY LAYER ORDER */}
               {layers.map(layer => {
-                 // Get objects for this layer
                  const layerObjects = objects.filter(o => o.layerId === layer.id);
                  return (
                     <div key={layer.id} className="absolute inset-0 pointer-events-none">
-                       {/* Wrapper div for layer to separate z-stacking if needed, but absolute pos handles it */}
                        {layerObjects.map(renderObject)}
                     </div>
                  )
               })}
-
+              
               <div className="absolute -top-6 left-0 text-gray-500 text-[10px] font-mono whitespace-nowrap scale-[1] origin-bottom-left" style={{ transform: `scale(${1/zoom})` }}>
-                CÁMARA: {canvasConfig.width}x{canvasConfig.height} px
+                ORIGEN (0,0)
               </div>
           </div>
+          
+          {/* CAMERA FRAME OVERLAY (Only shows if target is set) */}
+          {cameraConfig?.targetObjectId && (
+              <div 
+                className="absolute pointer-events-none z-[60]"
+                style={{
+                    left: cameraRect.x,
+                    top: cameraRect.y,
+                    width: cameraRect.w,
+                    height: cameraRect.h,
+                    border: '4px solid #000000', // Thick black border
+                    boxShadow: '0 0 0 2px rgba(255, 255, 255, 0.5), inset 0 0 20px rgba(0,0,0,0.1)', // White outline + Inner shadow for contrast
+                }}
+              >
+                  <div className="absolute top-0 right-0 bg-black text-white text-[10px] px-2 py-1 font-bold" style={{ transform: `scale(${1/zoom})`, transformOrigin: 'top right' }}>
+                      CÁMARA
+                  </div>
+              </div>
+          )}
+
         </div>
       </div>
     </div>
