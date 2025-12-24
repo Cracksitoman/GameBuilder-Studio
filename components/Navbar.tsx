@@ -1,32 +1,26 @@
 import React from 'react';
-import { Play, Save, MonitorSmartphone, Settings, Smartphone, Share2, Grid3x3, Variable, Clapperboard, Video } from './Icons';
+import { Play, Save, MonitorSmartphone, Share2, ArrowRight } from './Icons';
 import { CanvasConfig } from '../types';
 
 interface NavbarProps {
   onPreview: () => void;
   onSave: () => void; // This triggers the Export modal
   onQuickSave: () => void; // New: Direct Save
-  onOpenAssets: () => void;
-  onOpenVariables: () => void;
-  onOpenScenes: () => void; // New
-  onOpenCamera: () => void; // New
-  canvasConfig: CanvasConfig;
-  onToggleOrientation: () => void;
+  onOpenAssets?: () => void; // Removed from UI but kept in interface to avoid breaking build if passed
+  onOpenVariables?: () => void;
+  onOpenScenes?: () => void; 
+  onOpenCamera?: () => void; 
+  canvasConfig?: CanvasConfig;
+  onToggleOrientation?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ 
   onPreview, 
   onSave, 
-  onQuickSave, 
-  onOpenAssets, 
-  onOpenVariables,
-  onOpenScenes,
-  onOpenCamera,
-  canvasConfig, 
-  onToggleOrientation 
+  onQuickSave
 }) => {
   return (
-    <nav className="h-14 bg-gray-900 border-b border-gray-700 flex items-center justify-between px-4 select-none">
+    <nav className="h-14 bg-gray-900 border-b border-gray-700 flex items-center justify-between px-4 select-none z-40 relative">
       <div className="flex items-center space-x-3">
         <div className="bg-blue-600 p-1.5 rounded-lg">
           <MonitorSmartphone className="w-5 h-5 text-white" />
@@ -35,69 +29,13 @@ export const Navbar: React.FC<NavbarProps> = ({
       </div>
 
       <div className="flex items-center space-x-2 md:space-x-4">
-        {/* Scenes Button */}
-        <button 
-          onClick={onOpenScenes}
-          className="flex items-center space-x-2 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded text-xs text-gray-300 transition-colors"
-          title="Gestor de Escenas"
-        >
-          <Clapperboard className="w-4 h-4 text-orange-400" />
-          <span className="hidden lg:inline">Escenas</span>
-        </button>
-
-        {/* Camera Button */}
-        <button 
-          onClick={onOpenCamera}
-          className="flex items-center space-x-2 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded text-xs text-gray-300 transition-colors"
-          title="Ajustes de Cámara"
-        >
-          <Video className="w-4 h-4 text-cyan-400" />
-          <span className="hidden lg:inline">Cámara</span>
-        </button>
-
-        {/* Assets Button */}
-        <button 
-          onClick={onOpenAssets}
-          className="flex items-center space-x-2 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded text-xs text-gray-300 transition-colors"
-          title="Gestor de Sprites"
-        >
-          <Grid3x3 className="w-4 h-4 text-purple-400" />
-          <span className="hidden lg:inline">Sprites</span>
-        </button>
-
-         {/* Variables Button */}
-         <button 
-          onClick={onOpenVariables}
-          className="flex items-center space-x-2 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded text-xs text-gray-300 transition-colors"
-          title="Variables Globales"
-        >
-          <Variable className="w-4 h-4 text-pink-400" />
-          <span className="hidden lg:inline">Variables</span>
-        </button>
-
-        {/* Orientation Toggle */}
-        <button 
-          onClick={onToggleOrientation}
-          className="flex items-center space-x-2 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded text-xs text-gray-300 transition-colors"
-          title="Cambiar Orientación"
-        >
-          {canvasConfig.mode === 'LANDSCAPE' ? (
-            <MonitorSmartphone className="w-4 h-4 rotate-90" />
-          ) : (
-            <Smartphone className="w-4 h-4" />
-          )}
-          <span className="hidden lg:inline">{canvasConfig.mode === 'LANDSCAPE' ? 'Horizontal' : 'Vertical'}</span>
-        </button>
-
-        <div className="h-6 w-px bg-gray-700 hidden sm:block"></div>
-
-        {/* Preview Button */}
+         {/* Center Action: Play */}
         <button 
           onClick={onPreview}
-          className="flex items-center space-x-2 px-4 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded transition-colors text-sm font-medium shadow-sm shadow-green-900/20"
+          className="flex items-center space-x-2 px-6 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-full transition-colors text-sm font-bold shadow-lg shadow-green-900/30"
         >
           <Play className="w-4 h-4 fill-current" />
-          <span className="hidden sm:inline">Jugar</span>
+          <span>Jugar</span>
         </button>
       </div>
 
@@ -105,8 +43,8 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* Quick Save Button */}
         <button 
           onClick={onQuickSave}
-          className="flex items-center space-x-2 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-200 hover:text-white rounded border border-gray-600 transition-colors text-xs"
-          title="Guardar Proyecto (.json)"
+          className="flex items-center space-x-2 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-200 hover:text-white rounded-lg border border-gray-600 transition-colors text-xs"
+          title="Guardar Proyecto (.gbs)"
         >
           <Save className="w-4 h-4" />
           <span className="hidden sm:inline">Guardar</span>
@@ -114,7 +52,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         <button 
           onClick={onSave}
-          className="flex items-center space-x-2 px-3 py-1.5 bg-blue-900/40 hover:bg-blue-800 text-blue-200 hover:text-white rounded border border-blue-800/50 transition-colors text-xs"
+          className="flex items-center space-x-2 px-3 py-1.5 bg-blue-900/40 hover:bg-blue-800 text-blue-200 hover:text-white rounded-lg border border-blue-800/50 transition-colors text-xs"
           title="Exportar Juego (APK/HTML)"
         >
           <Share2 className="w-4 h-4" />

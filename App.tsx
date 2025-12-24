@@ -13,9 +13,9 @@ import { StartScreen } from './components/StartScreen';
 import { EventSheet } from './components/EventSheet'; 
 import { VariableManagerModal } from './components/VariableManagerModal'; 
 import { SceneManagerModal } from './components/SceneManagerModal'; 
-import { CameraSettingsModal } from './components/CameraSettingsModal'; // New Import
+import { CameraSettingsModal } from './components/CameraSettingsModal'; 
 import { GameObject, ObjectType, EditorTool, CanvasConfig, Layer, Asset, Variable, Scene, CameraConfig } from './types';
-import { Layers, Plus, Settings, Play, Box, Move, Maximize, Hand, ArrowRight, Layout, Workflow, Grid3x3, Menu, ChevronLeft } from './components/Icons';
+import { Layers, Plus, Settings, Play, Box, Move, Maximize, Hand, ArrowRight, Layout, Workflow, Grid3x3, Menu, ChevronLeft, Clapperboard, Variable as VariableIcon, Video, Smartphone, MonitorSmartphone } from './components/Icons';
 
 // Helper to create object with layer
 const createInitialObject = (type: ObjectType, count: number, layerId: string): GameObject => {
@@ -141,7 +141,7 @@ export const App: React.FC = () => {
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   const [isVarManagerOpen, setIsVarManagerOpen] = useState(false); 
   const [isSceneManagerOpen, setIsSceneManagerOpen] = useState(false); 
-  const [isCameraModalOpen, setIsCameraModalOpen] = useState(false); // New State
+  const [isCameraModalOpen, setIsCameraModalOpen] = useState(false); 
   
   const [assetSelectCallback, setAssetSelectCallback] = useState<((url: string) => void) | null>(null);
 
@@ -323,7 +323,6 @@ export const App: React.FC = () => {
 
   const handleAddObject = (type: ObjectType) => {
     if (!currentScene) return;
-    // Add to ACTIVE layer, fallback to last layer if issue
     const targetLayerId = activeLayerId || layers[layers.length - 1].id;
     const newObj = createInitialObject(type, objects.length + 1, targetLayerId);
     
@@ -347,7 +346,6 @@ export const App: React.FC = () => {
 
   const handleSelectObject = (id: string | null) => {
     setSelectedObjectId(id);
-    // If selecting different object, reset tool to SELECT unless we are in paint mode on same object
     if (id !== selectedObjectId) {
         setCurrentTool(EditorTool.SELECT);
         setActiveBrushId(null);
@@ -399,7 +397,7 @@ export const App: React.FC = () => {
           locked: false
       };
       updateCurrentScene({ layers: [...layers, newLayer] });
-      setActiveLayerId(newId); // Auto select new layer
+      setActiveLayerId(newId); 
   };
 
   const handleRemoveLayer = (id: string) => {
@@ -448,21 +446,22 @@ export const App: React.FC = () => {
       return <StartScreen onNewProject={handleNewProject} onLoadProject={handleLoadProject} />;
   }
 
-  // Common NavItem Component
-  const NavItem = ({ icon: Icon, label, isActive, onClick }: { icon: any, label: string, isActive?: boolean, onClick: () => void }) => (
+  // Improved NavItem Component with tooltip
+  const NavItem = ({ icon: Icon, label, isActive, onClick, isSubItem = false }: { icon: any, label: string, isActive?: boolean, onClick: () => void, isSubItem?: boolean }) => (
      <button 
         onClick={onClick}
-        className={`w-full flex items-center p-3 transition-colors relative group
-        ${isActive ? 'text-white bg-blue-900/40 border-r-2 border-blue-500' : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'}`}
+        className={`w-full flex items-center px-3 py-3 transition-colors relative group
+        ${isActive ? 'text-white bg-blue-900/40 border-r-2 border-blue-500' : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'}
+        ${isSubItem ? 'pl-4' : ''}`}
         title={label}
      >
-         <Icon className={`w-6 h-6 shrink-0 ${isActive ? 'text-blue-400' : ''}`} />
-         <span className={`ml-3 text-sm font-medium transition-opacity duration-300 whitespace-nowrap ${isSidebarOpen ? 'opacity-100' : 'opacity-0 hidden'}`}>
+         <Icon className={`w-5 h-5 shrink-0 ${isActive ? 'text-blue-400' : ''}`} />
+         <span className={`ml-3 text-xs font-medium transition-opacity duration-300 whitespace-nowrap ${isSidebarOpen ? 'opacity-100' : 'opacity-0 hidden'}`}>
              {label}
          </span>
          
          {!isSidebarOpen && (
-             <div className="absolute left-full ml-2 bg-gray-800 text-white text-xs px-2 py-1 rounded shadow-lg opacity-0 group-hover:opacity-100 whitespace-nowrap z-[60] pointer-events-none">
+             <div className="absolute left-full ml-2 bg-gray-800 text-white text-xs px-2 py-1 rounded shadow-lg opacity-0 group-hover:opacity-100 whitespace-nowrap z-[60] pointer-events-none border border-gray-700">
                  {label}
              </div>
          )}
@@ -472,18 +471,12 @@ export const App: React.FC = () => {
   return (
     <div className="h-screen w-screen bg-gray-950 text-white font-sans overflow-hidden flex flex-col relative animate-in fade-in duration-500">
       
-      {/* 1. Top Navbar (Global) */}
-      <div className="relative z-30 flex-shrink-0">
+      {/* 1. Top Navbar (Clean) */}
+      <div className="relative z-50 flex-shrink-0">
         <Navbar 
           onSave={() => setIsExportOpen(true)} 
           onQuickSave={handleOpenSaveModal} 
           onPreview={() => setIsPreviewOpen(true)}
-          onOpenAssets={() => handleOpenAssetManager()}
-          onOpenVariables={() => setIsVarManagerOpen(true)}
-          onOpenScenes={() => setIsSceneManagerOpen(true)}
-          onOpenCamera={() => setIsCameraModalOpen(true)} // Open Camera Modal
-          canvasConfig={canvasConfig}
-          onToggleOrientation={handleToggleOrientation}
         />
         <button 
            onClick={() => { if(confirm("¿Volver al inicio? Se perderán los cambios no guardados.")) setViewState('START'); }}
@@ -502,9 +495,9 @@ export const App: React.FC = () => {
       {/* 2. Main Workspace (Flex Container) */}
       <div className="flex-1 flex overflow-hidden relative">
 
-          {/* LEFT MAIN SIDEBAR (Navigation) */}
+          {/* LEFT MAIN SIDEBAR (Navigation & Tools) */}
           <div 
-            className={`bg-gray-900 border-r border-gray-800 flex flex-col transition-all duration-300 ease-in-out z-50 absolute top-0 bottom-0 left-0 shadow-xl ${isSidebarOpen ? 'w-48' : 'w-14'}`}
+            className={`bg-gray-900 border-r border-gray-800 flex flex-col transition-all duration-300 ease-in-out z-50 shadow-xl ${isSidebarOpen ? 'w-48' : 'w-14'}`}
           >
                <div className="flex justify-end p-2 border-b border-gray-800">
                    <button 
@@ -515,41 +508,66 @@ export const App: React.FC = () => {
                    </button>
                </div>
 
-               <div className="flex-1 py-2 space-y-1 overflow-y-auto overflow-x-hidden">
+               <div className="flex-1 py-2 overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-gray-700">
+                   <div className="px-3 pb-2 pt-1 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden md:block opacity-50">
+                       {isSidebarOpen ? 'Vistas' : '—'}
+                   </div>
                    <NavItem 
                       icon={Layout} 
-                      label="Escena" 
+                      label="Editor Escena" 
                       isActive={editorMode === 'SCENE'} 
                       onClick={() => setEditorMode('SCENE')} 
                    />
                    <NavItem 
                       icon={Workflow} 
-                      label="Eventos" 
+                      label="Editor Eventos" 
                       isActive={editorMode === 'EVENTS'} 
                       onClick={() => setEditorMode('EVENTS')} 
                    />
+                   
                    <div className="h-px bg-gray-800 mx-3 my-2" />
+                   <div className="px-3 pb-2 pt-1 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden md:block opacity-50">
+                       {isSidebarOpen ? 'Herramientas' : '—'}
+                   </div>
+
+                   <NavItem 
+                      icon={Clapperboard} 
+                      label="Gestor Escenas" 
+                      onClick={() => setIsSceneManagerOpen(true)} 
+                   />
                    <NavItem 
                       icon={Grid3x3} 
-                      label="Editor Sprites" 
+                      label="Sprites y Pixel Art" 
                       onClick={() => handleOpenAssetManager()} 
                    />
-               </div>
-
-               <div className="p-2 border-t border-gray-800">
                    <NavItem 
-                      icon={Play} 
-                      label="Jugar" 
-                      onClick={() => setIsPreviewOpen(true)} 
+                      icon={VariableIcon} 
+                      label="Variables Globales" 
+                      onClick={() => setIsVarManagerOpen(true)} 
+                   />
+                   <NavItem 
+                      icon={Video} 
+                      label="Cámara" 
+                      onClick={() => setIsCameraModalOpen(true)} 
+                   />
+                   
+                   <div className="h-px bg-gray-800 mx-3 my-2" />
+                   
+                   <NavItem 
+                      icon={canvasConfig.mode === 'LANDSCAPE' ? MonitorSmartphone : Smartphone} 
+                      label={canvasConfig.mode === 'LANDSCAPE' ? 'Horizontal' : 'Vertical'} 
+                      onClick={handleToggleOrientation} 
                    />
                </div>
           </div>
 
           {/* CONTENT AREA */}
-          <div className="flex-1 relative flex flex-col overflow-hidden bg-gray-950 pl-14">
+          <div className="flex-1 relative flex flex-col overflow-hidden bg-gray-950">
               
               {/* SCENE EDITOR */}
-              <div className={`flex-1 relative flex flex-col ${editorMode === 'SCENE' ? 'block' : 'hidden'}`}>
+              <div className={`flex-1 flex flex-col relative overflow-hidden ${editorMode === 'SCENE' ? 'flex' : 'hidden'}`}>
+                    
+                    {/* Floating Toolbar (Tools) */}
                     <div className="absolute top-4 left-4 z-20 flex flex-col space-y-2 bg-gray-800/90 backdrop-blur border border-gray-700 p-1.5 rounded-xl shadow-xl">
                         <button onClick={() => {setCurrentTool(EditorTool.SELECT); setActiveBrushId(null);}} className={`p-3 rounded-lg transition-all ${currentTool === EditorTool.SELECT ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`} title="Mover">
                             <Move className="w-5 h-5" />
@@ -562,43 +580,47 @@ export const App: React.FC = () => {
                         </button>
                     </div>
                     
-                    <Canvas 
-                        objects={objects}
-                        layers={layers}
-                        selectedObjectId={selectedObjectId}
-                        currentTool={currentTool}
-                        activeBrushId={activeBrushId} 
-                        brushSolid={brushSolid} 
-                        activeLayerId={activeLayerId} // Pass active layer
-                        assets={assets} 
-                        canvasConfig={canvasConfig}
-                        cameraConfig={cameraConfig} // Pass Camera Config
-                        onSelectObject={handleSelectObject}
-                        onUpdateObject={handleUpdateObject}
-                        onEditObject={handleEditObject}
-                    />
+                    {/* Canvas Area - Flex Grow */}
+                    <div className="flex-1 relative">
+                        <Canvas 
+                            objects={objects}
+                            layers={layers}
+                            selectedObjectId={selectedObjectId}
+                            currentTool={currentTool}
+                            activeBrushId={activeBrushId} 
+                            brushSolid={brushSolid} 
+                            activeLayerId={activeLayerId} 
+                            assets={assets} 
+                            canvasConfig={canvasConfig}
+                            cameraConfig={cameraConfig} 
+                            onSelectObject={handleSelectObject}
+                            onUpdateObject={handleUpdateObject}
+                            onEditObject={handleEditObject}
+                        />
+                    </div>
 
-                    {/* DOCK for Drawers (Only in Scene Mode) */}
-                    <div className="h-14 bg-gray-900 border-t border-gray-800 flex items-center justify-center space-x-8 px-4 z-30 absolute bottom-0 w-full safe-area-bottom">
-                         <button onClick={() => togglePanel('library')} className={`flex flex-col items-center justify-center space-y-1 ${activePanel === 'library' ? 'text-blue-400' : 'text-gray-500 hover:text-gray-300'}`}>
-                             <Box className="w-5 h-5" />
-                             <span className="text-[9px] font-medium">Objetos</span>
+                    {/* DOCK for Drawers (STATIC FOOTER) */}
+                    <div className="h-16 bg-gray-900 border-t border-gray-800 flex items-center justify-center space-x-12 px-4 z-40 shrink-0 safe-area-bottom shadow-[0_-5px_20px_rgba(0,0,0,0.3)] relative">
+                         <button onClick={() => togglePanel('library')} className={`flex flex-col items-center justify-center space-y-1 w-12 ${activePanel === 'library' ? 'text-blue-400' : 'text-gray-500 hover:text-gray-300'}`}>
+                             <Box className="w-6 h-6" />
+                             <span className="text-[10px] font-bold">Objetos</span>
                          </button>
 
-                         <div className="relative -top-6">
-                             <button onClick={() => togglePanel('library')} className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center shadow-lg text-white border-4 border-gray-950 transform hover:scale-105 transition-transform">
-                               <Plus className="w-6 h-6" />
+                         {/* Floating Plus Button (Visual Only, opens Library too) */}
+                         <div className="relative -top-8">
+                             <button onClick={() => togglePanel('library')} className="w-14 h-14 bg-blue-600 rounded-full flex items-center justify-center shadow-lg text-white border-4 border-gray-950 transform hover:scale-105 transition-transform">
+                               <Plus className="w-7 h-7" />
                              </button>
                          </div>
 
-                         <button onClick={() => togglePanel('properties')} className={`flex flex-col items-center justify-center space-y-1 ${activePanel === 'properties' ? 'text-blue-400' : 'text-gray-500 hover:text-gray-300'}`}>
-                             <Settings className="w-5 h-5" />
-                             <span className="text-[9px] font-medium">Editar</span>
+                         <button onClick={() => togglePanel('properties')} className={`flex flex-col items-center justify-center space-y-1 w-12 ${activePanel === 'properties' ? 'text-blue-400' : 'text-gray-500 hover:text-gray-300'}`}>
+                             <Settings className="w-6 h-6" />
+                             <span className="text-[10px] font-bold">Editar</span>
                          </button>
 
-                         <button onClick={() => togglePanel('layers')} className={`flex flex-col items-center justify-center space-y-1 ${activePanel === 'layers' ? 'text-blue-400' : 'text-gray-500 hover:text-gray-300'}`}>
-                             <Layers className="w-5 h-5" />
-                             <span className="text-[9px] font-medium">Capas</span>
+                         <button onClick={() => togglePanel('layers')} className={`flex flex-col items-center justify-center space-y-1 w-12 ${activePanel === 'layers' ? 'text-blue-400' : 'text-gray-500 hover:text-gray-300'}`}>
+                             <Layers className="w-6 h-6" />
+                             <span className="text-[10px] font-bold">Capas</span>
                          </button>
                     </div>
               </div>
@@ -681,7 +703,7 @@ export const App: React.FC = () => {
         onConfirm={handleConfirmSave}
       />
 
-      {/* Sliding Panels */}
+      {/* Sliding Panels Overlay */}
       {activePanel !== 'none' && editorMode === 'SCENE' && (
         <div 
           className="absolute inset-0 bg-black/50 z-40 transition-opacity"
@@ -689,7 +711,8 @@ export const App: React.FC = () => {
         />
       )}
 
-      <div className={`absolute bottom-0 left-0 right-0 h-[60%] z-50 transform transition-transform duration-300 ease-out ${activePanel === 'library' && editorMode === 'SCENE' ? 'translate-y-0' : 'translate-y-full'}`}>
+      {/* Sliding Panels (Z-50 to cover dock if needed, or Z-30 to slide under? Usually panels go over) */}
+      <div className={`absolute bottom-0 left-0 right-0 h-[60%] z-[60] transform transition-transform duration-300 ease-out ${activePanel === 'library' && editorMode === 'SCENE' ? 'translate-y-0' : 'translate-y-full'}`}>
         <ObjectLibrary 
           objects={objects}
           selectedObjectId={selectedObjectId}
@@ -701,7 +724,7 @@ export const App: React.FC = () => {
         />
       </div>
 
-      <div className={`absolute bottom-0 left-0 right-0 h-[60%] z-50 transform transition-transform duration-300 ease-out ${activePanel === 'properties' && editorMode === 'SCENE' ? 'translate-y-0' : 'translate-y-full'}`}>
+      <div className={`absolute bottom-0 left-0 right-0 h-[60%] z-[60] transform transition-transform duration-300 ease-out ${activePanel === 'properties' && editorMode === 'SCENE' ? 'translate-y-0' : 'translate-y-full'}`}>
         <PropertiesPanel 
           selectedObject={selectedObject}
           objects={objects}
@@ -719,12 +742,12 @@ export const App: React.FC = () => {
         />
       </div>
 
-      <div className={`absolute bottom-0 left-0 right-0 h-[50%] z-50 transform transition-transform duration-300 ease-out ${activePanel === 'layers' && editorMode === 'SCENE' ? 'translate-y-0' : 'translate-y-full'}`}>
+      <div className={`absolute bottom-0 left-0 right-0 h-[50%] z-[60] transform transition-transform duration-300 ease-out ${activePanel === 'layers' && editorMode === 'SCENE' ? 'translate-y-0' : 'translate-y-full'}`}>
         <LayersPanel 
           layers={layers}
           selectedObjectId={selectedObjectId}
-          activeLayerId={activeLayerId} // Pass active
-          onSelectLayer={setActiveLayerId} // Pass setter
+          activeLayerId={activeLayerId} 
+          onSelectLayer={setActiveLayerId} 
           objects={objects}
           onAddLayer={handleAddLayer}
           onRemoveLayer={handleRemoveLayer}
