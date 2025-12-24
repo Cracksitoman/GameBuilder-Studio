@@ -469,7 +469,8 @@ export const App: React.FC = () => {
   );
 
   return (
-    <div className="h-screen w-screen bg-gray-950 text-white font-sans overflow-hidden flex flex-col relative animate-in fade-in duration-500">
+    // Use 100dvh for better mobile support
+    <div className="h-[100dvh] w-screen bg-gray-950 text-white font-sans overflow-hidden flex flex-col relative animate-in fade-in duration-500 supports-[height:100dvh]:h-[100dvh]">
       
       {/* 1. Top Navbar (Clean) */}
       <div className="relative z-50 flex-shrink-0">
@@ -565,7 +566,7 @@ export const App: React.FC = () => {
           <div className="flex-1 relative flex flex-col overflow-hidden bg-gray-950">
               
               {/* SCENE EDITOR */}
-              <div className={`flex-1 flex flex-col relative overflow-hidden ${editorMode === 'SCENE' ? 'flex' : 'hidden'}`}>
+              <div className={`flex-1 relative w-full h-full overflow-hidden ${editorMode === 'SCENE' ? 'block' : 'hidden'}`}>
                     
                     {/* Floating Toolbar (Tools) */}
                     <div className="absolute top-4 left-4 z-20 flex flex-col space-y-2 bg-gray-800/90 backdrop-blur border border-gray-700 p-1.5 rounded-xl shadow-xl">
@@ -580,8 +581,8 @@ export const App: React.FC = () => {
                         </button>
                     </div>
                     
-                    {/* Canvas Area - Flex Grow */}
-                    <div className="flex-1 relative">
+                    {/* Canvas Area - Absolute fill with padding bottom for dock */}
+                    <div className="absolute inset-0 pb-16 bg-gray-950">
                         <Canvas 
                             objects={objects}
                             layers={layers}
@@ -599,14 +600,17 @@ export const App: React.FC = () => {
                         />
                     </div>
 
-                    {/* DOCK for Drawers (STATIC FOOTER) */}
-                    <div className="h-16 bg-gray-900 border-t border-gray-800 flex items-center justify-center space-x-12 px-4 z-40 shrink-0 safe-area-bottom shadow-[0_-5px_20px_rgba(0,0,0,0.3)] relative">
+                    {/* DOCK for Drawers (STATIC ABSOLUTE FOOTER) */}
+                    <div 
+                        className="absolute bottom-0 left-0 right-0 h-16 bg-gray-900 border-t border-gray-800 flex items-center justify-center space-x-12 px-4 z-[50] shadow-[0_-5px_20px_rgba(0,0,0,0.5)]"
+                        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+                    >
                          <button onClick={() => togglePanel('library')} className={`flex flex-col items-center justify-center space-y-1 w-12 ${activePanel === 'library' ? 'text-blue-400' : 'text-gray-500 hover:text-gray-300'}`}>
                              <Box className="w-6 h-6" />
                              <span className="text-[10px] font-bold">Objetos</span>
                          </button>
 
-                         {/* Floating Plus Button (Visual Only, opens Library too) */}
+                         {/* Floating Plus Button */}
                          <div className="relative -top-8">
                              <button onClick={() => togglePanel('library')} className="w-14 h-14 bg-blue-600 rounded-full flex items-center justify-center shadow-lg text-white border-4 border-gray-950 transform hover:scale-105 transition-transform">
                                <Plus className="w-7 h-7" />
@@ -706,12 +710,12 @@ export const App: React.FC = () => {
       {/* Sliding Panels Overlay */}
       {activePanel !== 'none' && editorMode === 'SCENE' && (
         <div 
-          className="absolute inset-0 bg-black/50 z-40 transition-opacity"
+          className="absolute inset-0 bg-black/50 z-[55] transition-opacity"
           onClick={() => setActivePanel('none')}
         />
       )}
 
-      {/* Sliding Panels (Z-50 to cover dock if needed, or Z-30 to slide under? Usually panels go over) */}
+      {/* Sliding Panels - Higher Z-Index to cover dock if needed */}
       <div className={`absolute bottom-0 left-0 right-0 h-[60%] z-[60] transform transition-transform duration-300 ease-out ${activePanel === 'library' && editorMode === 'SCENE' ? 'translate-y-0' : 'translate-y-full'}`}>
         <ObjectLibrary 
           objects={objects}
