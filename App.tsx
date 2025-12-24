@@ -1,0 +1,719 @@
+import React, { useState, useEffect } from 'react';
+import { Navbar } from './components/Navbar';
+import { ObjectLibrary } from './components/ObjectLibrary';
+import { Canvas } from './components/Canvas';
+import { PropertiesPanel } from './components/PropertiesPanel';
+import { LayersPanel } from './components/LayersPanel'; 
+import { EditObjectModal } from './components/EditObjectModal';
+import { GamePreviewModal } from './components/GamePreviewModal';
+import { ExportModal } from './components/ExportModal'; 
+import { AssetManagerModal } from './components/AssetManagerModal';
+import { SaveProjectModal } from './components/SaveProjectModal'; 
+import { StartScreen } from './components/StartScreen'; 
+import { EventSheet } from './components/EventSheet'; 
+import { VariableManagerModal } from './components/VariableManagerModal'; 
+import { SceneManagerModal } from './components/SceneManagerModal'; 
+import { GameObject, ObjectType, EditorTool, CanvasConfig, Layer, Asset, Variable, Scene } from './types';
+import { Layers, Plus, Settings, Play, Box, Move, Maximize, Hand, ArrowRight, Layout, Workflow, Grid3x3, Menu, ChevronLeft } from './components/Icons';
+
+// Helper to create object with layer
+const createInitialObject = (type: ObjectType, count: number, layerId: string): GameObject => {
+  const base: Partial<GameObject> = {
+    id: crypto.randomUUID(),
+    zIndex: 1,
+    layerId: layerId,
+    visible: true,
+    opacity: 1,
+    rotation: 0,
+    isObstacle: false, // Default physics state
+    behaviors: [],
+    events: [], // Initialize empty events
+    variables: [] // Initialize empty local vars
+  };
+
+  switch (type) {
+    case ObjectType.TEXT:
+      return {
+        ...base,
+        name: 'Texto Nuevo',
+        type: ObjectType.TEXT,
+        x: 100,
+        y: 100,
+        width: 150,
+        height: 50,
+        color: '#ffffff'
+      } as GameObject;
+    case ObjectType.PLAYER:
+       return {
+        ...base,
+        name: `Jugador ${count}`,
+        type: ObjectType.PLAYER,
+        x: 50,
+        y: 200,
+        width: 32,
+        height: 32,
+        color: '#22c55e'
+      } as GameObject;
+    case ObjectType.ENEMY:
+      return {
+        ...base,
+        name: `Enemigo ${count}`,
+        type: ObjectType.ENEMY,
+        x: 300,
+        y: 200,
+        width: 32,
+        height: 32,
+        color: '#ef4444'
+      } as GameObject;
+    case ObjectType.TILEMAP:
+        return {
+            ...base,
+            name: `Mapa ${count}`,
+            type: ObjectType.TILEMAP,
+            x: 0,
+            y: 0,
+            width: 320, // 10 tiles wide
+            height: 320, // 10 tiles high
+            color: 'transparent',
+            tilemap: {
+                tileSize: 32,
+                tiles: {}
+            }
+        } as GameObject;
+    default: // Sprite
+      return {
+        ...base,
+        name: `Sprite ${count}`,
+        type: ObjectType.SPRITE,
+        x: 200,
+        y: 150,
+        width: 50,
+        height: 50,
+        color: '#3b82f6',
+        isObstacle: true // Sprites default to obstacles often
+      } as GameObject;
+  }
+};
+
+type ActivePanel = 'none' | 'library' | 'properties' | 'layers';
+type ViewState = 'START' | 'EDITOR';
+type EditorMode = 'SCENE' | 'EVENTS';
+
+export const App: React.FC = () => {
+  // --- STATE ---
+  const [viewState, setViewState] = useState<ViewState>('START');
+  const [editorMode, setEditorMode] = useState<EditorMode>('SCENE'); 
+  const [projectName, setProjectName] = useState("Mi Proyecto");
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false); 
+
+  // Multi-Scene State
+  const [scenes, setScenes] = useState<Scene[]>([]);
+  const [currentSceneId, setCurrentSceneId] = useState<string>('');
+
+  const [assets, setAssets] = useState<Asset[]>([]); 
+  const [globalVariables, setGlobalVariables] = useState<Variable[]>([]); 
+
+  // Selection & Tools
+  const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
+  const [activePanel, setActivePanel] = useState<ActivePanel>('none');
+  const [currentTool, setCurrentTool] = useState<EditorTool>(EditorTool.SELECT);
+  
+  // Layer Management
+  const [activeLayerId, setActiveLayerId] = useState<string | null>(null);
+
+  // Brush State for Tilemaps
+  const [activeBrushId, setActiveBrushId] = useState<string | null>(null);
+  const [brushSolid, setBrushSolid] = useState<boolean>(false); 
+
+  // Canvas Configuration State
+  const [canvasConfig, setCanvasConfig] = useState<CanvasConfig>({
+      width: 800,
+      height: 450,
+      mode: 'LANDSCAPE'
+  });
+  
+  // Modal States
+  const [editingObject, setEditingObject] = useState<GameObject | null>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [isExportOpen, setIsExportOpen] = useState(false);
+  const [isAssetManagerOpen, setIsAssetManagerOpen] = useState(false);
+  const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+  const [isVarManagerOpen, setIsVarManagerOpen] = useState(false); 
+  const [isSceneManagerOpen, setIsSceneManagerOpen] = useState(false); 
+  
+  const [assetSelectCallback, setAssetSelectCallback] = useState<((url: string) => void) | null>(null);
+
+  // --- COMPUTED PROPERTIES ---
+  const currentScene = scenes.find(s => s.id === currentSceneId);
+  const objects = currentScene ? currentScene.objects : [];
+  const layers = currentScene ? currentScene.layers : [];
+  const selectedObject = objects.find(o => o.id === selectedObjectId) || null;
+
+  // Ensure activeLayerId is valid when scene changes
+  useEffect(() => {
+      if (currentScene && currentScene.layers.length > 0) {
+          // If current active layer is not in this scene, reset to top layer
+          const exists = currentScene.layers.find(l => l.id === activeLayerId);
+          if (!exists) {
+              setActiveLayerId(currentScene.layers[currentScene.layers.length - 1].id);
+          }
+      }
+  }, [currentSceneId, scenes]);
+
+  // --- HELPERS FOR UPDATING CURRENT SCENE ---
+  const updateCurrentScene = (updates: Partial<Scene>) => {
+      setScenes(prev => prev.map(s => s.id === currentSceneId ? { ...s, ...updates } : s));
+  };
+
+  const handleUpdateObjectInScene = (id: string, updates: Partial<GameObject>) => {
+      if (!currentScene) return;
+      const newObjects = currentScene.objects.map(obj => obj.id === id ? { ...obj, ...updates } : obj);
+      updateCurrentScene({ objects: newObjects });
+  };
+
+  // --- START SCREEN HANDLERS ---
+  const handleNewProject = () => {
+      const firstSceneId = crypto.randomUUID();
+      const firstLayerId = 'layer-base';
+      const initialScene: Scene = {
+          id: firstSceneId,
+          name: 'Escena 1',
+          backgroundColor: '#111827',
+          objects: [],
+          layers: [{ id: firstLayerId, name: 'Capa Base', visible: true, locked: false }]
+      };
+
+      setScenes([initialScene]);
+      setCurrentSceneId(firstSceneId);
+      setActiveLayerId(firstLayerId); // Set active layer
+      setAssets([]);
+      setGlobalVariables([]);
+      setCanvasConfig({ width: 800, height: 450, mode: 'LANDSCAPE' });
+      setSelectedObjectId(null);
+      setProjectName("Mi Proyecto");
+      setViewState('EDITOR');
+      setEditorMode('SCENE');
+  };
+
+  const handleLoadProject = (file: File) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+          try {
+              const json = JSON.parse(e.target?.result as string);
+              
+              let loadedScenes: Scene[] = [];
+              if (json.scenes) {
+                  loadedScenes = json.scenes;
+              } else if (json.objects && json.layers) {
+                  loadedScenes = [{
+                      id: crypto.randomUUID(),
+                      name: 'Escena 1',
+                      objects: json.objects,
+                      layers: json.layers,
+                      backgroundColor: '#111827'
+                  }];
+              }
+
+              if (loadedScenes.length > 0 && json.canvasConfig) {
+                  setScenes(loadedScenes);
+                  setCurrentSceneId(loadedScenes[0].id);
+                  // Set active layer to the top layer of the loaded scene
+                  if (loadedScenes[0].layers.length > 0) {
+                      setActiveLayerId(loadedScenes[0].layers[loadedScenes[0].layers.length - 1].id);
+                  }
+                  
+                  setCanvasConfig(json.canvasConfig);
+                  setAssets(json.assets || []); 
+                  setGlobalVariables(json.globalVariables || []);
+                  
+                  if (json.metadata && json.metadata.name) {
+                      setProjectName(json.metadata.name);
+                  } else {
+                      const nameFromFiles = file.name.replace(/\.[^/.]+$/, "");
+                      setProjectName(nameFromFiles);
+                  }
+
+                  setViewState('EDITOR');
+                  setEditorMode('SCENE');
+              } else {
+                  alert("Error: Archivo de proyecto inválido o corrupto.");
+              }
+          } catch (err) {
+              console.error(err);
+              alert("Error al leer el archivo. Asegúrate de que es un archivo .GBS o .JSON válido.");
+          }
+      };
+      reader.readAsText(file);
+  };
+
+  // --- SAVE HANDLERS ---
+  const handleOpenSaveModal = () => {
+      setIsSaveModalOpen(true);
+  };
+
+  const handleConfirmSave = (name: string) => {
+      setProjectName(name); 
+      const gameData = {
+          metadata: { name: name, version: "2.5", timestamp: Date.now() },
+          scenes, 
+          canvasConfig,
+          assets,
+          globalVariables
+      };
+      const dataStr = "data:text/plain;charset=utf-8," + encodeURIComponent(JSON.stringify(gameData, null, 2));
+      const downloadAnchorNode = document.createElement('a');
+      downloadAnchorNode.setAttribute("href", dataStr);
+      downloadAnchorNode.setAttribute("download", `${name}.gbs`);
+      document.body.appendChild(downloadAnchorNode);
+      downloadAnchorNode.click();
+      downloadAnchorNode.remove();
+      setIsSaveModalOpen(false);
+  };
+
+  // --- SCENE MANAGEMENT HANDLERS ---
+  const handleAddScene = (name: string) => {
+      const newLayerId = crypto.randomUUID();
+      const newScene: Scene = {
+          id: crypto.randomUUID(),
+          name: name,
+          objects: [],
+          layers: [{ id: newLayerId, name: 'Capa Base', visible: true, locked: false }],
+          backgroundColor: '#111827'
+      };
+      setScenes(prev => [...prev, newScene]);
+      setCurrentSceneId(newScene.id); 
+      setActiveLayerId(newLayerId);
+  };
+
+  const handleRenameScene = (id: string, name: string) => {
+      setScenes(prev => prev.map(s => s.id === id ? { ...s, name } : s));
+  };
+
+  const handleDeleteScene = (id: string) => {
+      if (scenes.length <= 1) return; 
+      const newScenes = scenes.filter(s => s.id !== id);
+      setScenes(newScenes);
+      if (currentSceneId === id) {
+          setCurrentSceneId(newScenes[0].id);
+      }
+  };
+
+  // --- EDITOR HANDLERS ---
+
+  const handleToggleOrientation = () => {
+      setCanvasConfig(prev => {
+          if (prev.mode === 'LANDSCAPE') {
+              return { width: 450, height: 800, mode: 'PORTRAIT' };
+          } else {
+              return { width: 800, height: 450, mode: 'LANDSCAPE' };
+          }
+      });
+  };
+
+  const handleAddObject = (type: ObjectType) => {
+    if (!currentScene) return;
+    // Add to ACTIVE layer, fallback to last layer if issue
+    const targetLayerId = activeLayerId || layers[layers.length - 1].id;
+    const newObj = createInitialObject(type, objects.length + 1, targetLayerId);
+    
+    updateCurrentScene({ objects: [...objects, newObj] });
+    setSelectedObjectId(newObj.id);
+    setCurrentTool(EditorTool.SELECT);
+    setActivePanel('none');
+  };
+
+  const handleUpdateObject = (id: string, updates: Partial<GameObject>) => {
+    handleUpdateObjectInScene(id, updates);
+  };
+
+  const handleDeleteObject = (id: string) => {
+    if (!currentScene) return;
+    updateCurrentScene({ objects: objects.filter(obj => obj.id !== id) });
+    if (selectedObjectId === id) {
+      setSelectedObjectId(null);
+    }
+  };
+
+  const handleSelectObject = (id: string | null) => {
+    setSelectedObjectId(id);
+    // If selecting different object, reset tool to SELECT unless we are in paint mode on same object
+    if (id !== selectedObjectId) {
+        setCurrentTool(EditorTool.SELECT);
+        setActiveBrushId(null);
+    }
+  };
+
+  const handleEditObject = (obj: GameObject) => {
+    setEditingObject(obj);
+  };
+
+  const togglePanel = (panel: ActivePanel) => {
+    setActivePanel(current => current === panel ? 'none' : panel);
+  };
+
+  // --- ASSET HANDLERS ---
+  const handleOpenAssetManager = (callback?: (url: string) => void) => {
+      if (callback) {
+          setAssetSelectCallback(() => callback);
+      } else {
+          setAssetSelectCallback(null);
+      }
+      setIsAssetManagerOpen(true);
+  };
+
+  const handleAssetSelect = (url: string) => {
+      if (assetSelectCallback) {
+          assetSelectCallback(url);
+          setIsAssetManagerOpen(false);
+          setAssetSelectCallback(null);
+      }
+  };
+
+  const handleAddAsset = (asset: Asset) => {
+      setAssets(prev => [...prev, asset]);
+  };
+
+  const handleDeleteAsset = (id: string) => {
+      setAssets(prev => prev.filter(a => a.id !== id));
+  };
+
+  // --- LAYER HANDLERS ---
+  const handleAddLayer = () => {
+      if (!currentScene) return;
+      const newId = crypto.randomUUID();
+      const newLayer: Layer = {
+          id: newId,
+          name: `Capa ${layers.length + 1}`,
+          visible: true,
+          locked: false
+      };
+      updateCurrentScene({ layers: [...layers, newLayer] });
+      setActiveLayerId(newId); // Auto select new layer
+  };
+
+  const handleRemoveLayer = (id: string) => {
+      if (!currentScene || layers.length <= 1) return;
+      const newLayers = layers.filter(l => l.id !== id);
+      const newObjects = objects.filter(o => o.layerId !== id);
+      updateCurrentScene({ layers: newLayers, objects: newObjects });
+      
+      if (activeLayerId === id) {
+          setActiveLayerId(newLayers[newLayers.length - 1].id);
+      }
+  };
+
+  const handleUpdateLayer = (id: string, updates: Partial<Layer>) => {
+      if (!currentScene) return;
+      updateCurrentScene({ layers: layers.map(l => l.id === id ? { ...l, ...updates } : l) });
+  };
+
+  const handleMoveLayer = (id: string, direction: 'up' | 'down') => {
+      if (!currentScene) return;
+      const index = layers.findIndex(l => l.id === id);
+      if (index === -1) return;
+      
+      const newLayers = [...layers];
+      if (direction === 'up' && index < newLayers.length - 1) {
+          [newLayers[index], newLayers[index + 1]] = [newLayers[index + 1], newLayers[index]];
+      } else if (direction === 'down' && index > 0) {
+          [newLayers[index], newLayers[index - 1]] = [newLayers[index - 1], newLayers[index]];
+      }
+      updateCurrentScene({ layers: newLayers });
+  };
+
+  const handleAssignObjectToLayer = (objectId: string, layerId: string) => {
+      handleUpdateObject(objectId, { layerId });
+  };
+
+  // --- PAINT HANDLERS ---
+  const handleSetBrush = (tool: EditorTool, assetId: string | null) => {
+      setCurrentTool(tool);
+      setActiveBrushId(assetId);
+  };
+
+  // --- RENDER ---
+
+  if (viewState === 'START') {
+      return <StartScreen onNewProject={handleNewProject} onLoadProject={handleLoadProject} />;
+  }
+
+  // Common NavItem Component
+  const NavItem = ({ icon: Icon, label, isActive, onClick }: { icon: any, label: string, isActive?: boolean, onClick: () => void }) => (
+     <button 
+        onClick={onClick}
+        className={`w-full flex items-center p-3 transition-colors relative group
+        ${isActive ? 'text-white bg-blue-900/40 border-r-2 border-blue-500' : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'}`}
+        title={label}
+     >
+         <Icon className={`w-6 h-6 shrink-0 ${isActive ? 'text-blue-400' : ''}`} />
+         <span className={`ml-3 text-sm font-medium transition-opacity duration-300 whitespace-nowrap ${isSidebarOpen ? 'opacity-100' : 'opacity-0 hidden'}`}>
+             {label}
+         </span>
+         
+         {!isSidebarOpen && (
+             <div className="absolute left-full ml-2 bg-gray-800 text-white text-xs px-2 py-1 rounded shadow-lg opacity-0 group-hover:opacity-100 whitespace-nowrap z-[60] pointer-events-none">
+                 {label}
+             </div>
+         )}
+     </button>
+  );
+
+  return (
+    <div className="h-screen w-screen bg-gray-950 text-white font-sans overflow-hidden flex flex-col relative animate-in fade-in duration-500">
+      
+      {/* 1. Top Navbar (Global) */}
+      <div className="relative z-30 flex-shrink-0">
+        <Navbar 
+          onSave={() => setIsExportOpen(true)} 
+          onQuickSave={handleOpenSaveModal} 
+          onPreview={() => setIsPreviewOpen(true)}
+          onOpenAssets={() => handleOpenAssetManager()}
+          onOpenVariables={() => setIsVarManagerOpen(true)}
+          onOpenScenes={() => setIsSceneManagerOpen(true)}
+          canvasConfig={canvasConfig}
+          onToggleOrientation={handleToggleOrientation}
+        />
+        <button 
+           onClick={() => { if(confirm("¿Volver al inicio? Se perderán los cambios no guardados.")) setViewState('START'); }}
+           className="absolute top-3 right-3 bg-gray-800/50 hover:bg-gray-800 p-2 rounded-full text-xs text-gray-500 z-50"
+           title="Volver al Inicio"
+        >
+            <ArrowRight className="w-4 h-4 rotate-180" />
+        </button>
+
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 pointer-events-none opacity-50 text-[10px] text-gray-400 flex flex-col items-center">
+            <span>{projectName}</span>
+            <span className="text-orange-400 text-[9px]">{currentScene?.name || '...'}</span>
+        </div>
+      </div>
+
+      {/* 2. Main Workspace (Flex Container) */}
+      <div className="flex-1 flex overflow-hidden relative">
+
+          {/* LEFT MAIN SIDEBAR (Navigation) */}
+          <div 
+            className={`bg-gray-900 border-r border-gray-800 flex flex-col transition-all duration-300 ease-in-out z-50 absolute top-0 bottom-0 left-0 shadow-xl ${isSidebarOpen ? 'w-48' : 'w-14'}`}
+          >
+               <div className="flex justify-end p-2 border-b border-gray-800">
+                   <button 
+                     onClick={() => setIsSidebarOpen(!isSidebarOpen)} 
+                     className="p-1.5 text-gray-500 hover:bg-gray-800 hover:text-white rounded-lg transition-colors"
+                   >
+                       {isSidebarOpen ? <ChevronLeft className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+                   </button>
+               </div>
+
+               <div className="flex-1 py-2 space-y-1 overflow-y-auto overflow-x-hidden">
+                   <NavItem 
+                      icon={Layout} 
+                      label="Escena" 
+                      isActive={editorMode === 'SCENE'} 
+                      onClick={() => setEditorMode('SCENE')} 
+                   />
+                   <NavItem 
+                      icon={Workflow} 
+                      label="Eventos" 
+                      isActive={editorMode === 'EVENTS'} 
+                      onClick={() => setEditorMode('EVENTS')} 
+                   />
+                   <div className="h-px bg-gray-800 mx-3 my-2" />
+                   <NavItem 
+                      icon={Grid3x3} 
+                      label="Editor Sprites" 
+                      onClick={() => handleOpenAssetManager()} 
+                   />
+               </div>
+
+               <div className="p-2 border-t border-gray-800">
+                   <NavItem 
+                      icon={Play} 
+                      label="Jugar" 
+                      onClick={() => setIsPreviewOpen(true)} 
+                   />
+               </div>
+          </div>
+
+          {/* CONTENT AREA */}
+          <div className="flex-1 relative flex flex-col overflow-hidden bg-gray-950 pl-14">
+              
+              {/* SCENE EDITOR */}
+              <div className={`flex-1 relative flex flex-col ${editorMode === 'SCENE' ? 'block' : 'hidden'}`}>
+                    <div className="absolute top-4 left-4 z-20 flex flex-col space-y-2 bg-gray-800/90 backdrop-blur border border-gray-700 p-1.5 rounded-xl shadow-xl">
+                        <button onClick={() => {setCurrentTool(EditorTool.SELECT); setActiveBrushId(null);}} className={`p-3 rounded-lg transition-all ${currentTool === EditorTool.SELECT ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`} title="Mover">
+                            <Move className="w-5 h-5" />
+                        </button>
+                        <button onClick={() => {setCurrentTool(EditorTool.RESIZE); setActiveBrushId(null);}} className={`p-3 rounded-lg transition-all ${currentTool === EditorTool.RESIZE ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`} title="Escalar">
+                            <Maximize className="w-5 h-5" />
+                        </button>
+                        <button onClick={() => {setCurrentTool(EditorTool.HAND); setActiveBrushId(null);}} className={`p-3 rounded-lg transition-all ${currentTool === EditorTool.HAND ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`} title="Mano">
+                            <Hand className="w-5 h-5" />
+                        </button>
+                    </div>
+                    
+                    <Canvas 
+                        objects={objects}
+                        layers={layers}
+                        selectedObjectId={selectedObjectId}
+                        currentTool={currentTool}
+                        activeBrushId={activeBrushId} 
+                        brushSolid={brushSolid} 
+                        activeLayerId={activeLayerId} // Pass active layer
+                        assets={assets} 
+                        canvasConfig={canvasConfig}
+                        onSelectObject={handleSelectObject}
+                        onUpdateObject={handleUpdateObject}
+                        onEditObject={handleEditObject}
+                    />
+
+                    {/* DOCK for Drawers (Only in Scene Mode) */}
+                    <div className="h-14 bg-gray-900 border-t border-gray-800 flex items-center justify-center space-x-8 px-4 z-30 absolute bottom-0 w-full safe-area-bottom">
+                         <button onClick={() => togglePanel('library')} className={`flex flex-col items-center justify-center space-y-1 ${activePanel === 'library' ? 'text-blue-400' : 'text-gray-500 hover:text-gray-300'}`}>
+                             <Box className="w-5 h-5" />
+                             <span className="text-[9px] font-medium">Objetos</span>
+                         </button>
+
+                         <div className="relative -top-6">
+                             <button onClick={() => togglePanel('library')} className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center shadow-lg text-white border-4 border-gray-950 transform hover:scale-105 transition-transform">
+                               <Plus className="w-6 h-6" />
+                             </button>
+                         </div>
+
+                         <button onClick={() => togglePanel('properties')} className={`flex flex-col items-center justify-center space-y-1 ${activePanel === 'properties' ? 'text-blue-400' : 'text-gray-500 hover:text-gray-300'}`}>
+                             <Settings className="w-5 h-5" />
+                             <span className="text-[9px] font-medium">Editar</span>
+                         </button>
+
+                         <button onClick={() => togglePanel('layers')} className={`flex flex-col items-center justify-center space-y-1 ${activePanel === 'layers' ? 'text-blue-400' : 'text-gray-500 hover:text-gray-300'}`}>
+                             <Layers className="w-5 h-5" />
+                             <span className="text-[9px] font-medium">Capas</span>
+                         </button>
+                    </div>
+              </div>
+
+              {/* EVENTS EDITOR */}
+              <div className={`flex-1 relative bg-gray-900 ${editorMode === 'EVENTS' ? 'block' : 'hidden'}`}>
+                  <EventSheet 
+                      objects={objects}
+                      scenes={scenes}
+                      onUpdateObject={handleUpdateObject}
+                  />
+              </div>
+
+          </div>
+      </div>
+
+      {/* 4. Drawers & Modals */}
+      <EditObjectModal 
+        isOpen={!!editingObject}
+        object={editingObject}
+        onClose={() => setEditingObject(null)}
+        onSave={handleUpdateObject}
+      />
+
+      <GamePreviewModal 
+        isOpen={isPreviewOpen}
+        objects={objects} 
+        scenes={scenes} 
+        initialSceneId={currentSceneId}
+        canvasConfig={canvasConfig}
+        onClose={() => setIsPreviewOpen(false)}
+        globalVariables={globalVariables} 
+      />
+
+      <ExportModal 
+        isOpen={isExportOpen}
+        onClose={() => setIsExportOpen(false)}
+        gameData={{objects, scenes, layers, canvasConfig, assets, globalVariables}} 
+      />
+      
+      <AssetManagerModal
+        isOpen={isAssetManagerOpen}
+        assets={assets}
+        onClose={() => setIsAssetManagerOpen(false)}
+        onAddAsset={handleAddAsset}
+        onDeleteAsset={handleDeleteAsset}
+        onSelectAsset={assetSelectCallback ? handleAssetSelect : undefined}
+      />
+
+      <VariableManagerModal 
+        isOpen={isVarManagerOpen}
+        variables={globalVariables}
+        onClose={() => setIsVarManagerOpen(false)}
+        onUpdateVariables={setGlobalVariables}
+      />
+
+      <SceneManagerModal 
+        isOpen={isSceneManagerOpen}
+        scenes={scenes}
+        currentSceneId={currentSceneId}
+        onClose={() => setIsSceneManagerOpen(false)}
+        onSelectScene={(id) => { setCurrentSceneId(id); setSelectedObjectId(null); }}
+        onAddScene={handleAddScene}
+        onRenameScene={handleRenameScene}
+        onDeleteScene={handleDeleteScene}
+      />
+
+      <SaveProjectModal
+        isOpen={isSaveModalOpen}
+        currentName={projectName}
+        onClose={() => setIsSaveModalOpen(false)}
+        onConfirm={handleConfirmSave}
+      />
+
+      {/* Sliding Panels */}
+      {activePanel !== 'none' && editorMode === 'SCENE' && (
+        <div 
+          className="absolute inset-0 bg-black/50 z-40 transition-opacity"
+          onClick={() => setActivePanel('none')}
+        />
+      )}
+
+      <div className={`absolute bottom-0 left-0 right-0 h-[60%] z-50 transform transition-transform duration-300 ease-out ${activePanel === 'library' && editorMode === 'SCENE' ? 'translate-y-0' : 'translate-y-full'}`}>
+        <ObjectLibrary 
+          objects={objects}
+          selectedObjectId={selectedObjectId}
+          onAddObject={handleAddObject}
+          onSelectObject={handleSelectObject}
+          onDeleteObject={handleDeleteObject}
+          onClose={() => setActivePanel('none')}
+          className="rounded-t-2xl shadow-[0_-10px_40px_rgba(0,0,0,0.5)]"
+        />
+      </div>
+
+      <div className={`absolute bottom-0 left-0 right-0 h-[60%] z-50 transform transition-transform duration-300 ease-out ${activePanel === 'properties' && editorMode === 'SCENE' ? 'translate-y-0' : 'translate-y-full'}`}>
+        <PropertiesPanel 
+          selectedObject={selectedObject}
+          objects={objects}
+          globalVariables={globalVariables}
+          assets={assets} 
+          onUpdateObject={handleUpdateObject}
+          onOpenAssetManager={handleOpenAssetManager}
+          onSetBrush={handleSetBrush} 
+          activeBrushId={activeBrushId} 
+          brushSolid={brushSolid} 
+          onSetBrushSolid={setBrushSolid} 
+          currentTool={currentTool}
+          onClose={() => setActivePanel('none')}
+          className="rounded-t-2xl shadow-[0_-10px_40px_rgba(0,0,0,0.5)]"
+        />
+      </div>
+
+      <div className={`absolute bottom-0 left-0 right-0 h-[50%] z-50 transform transition-transform duration-300 ease-out ${activePanel === 'layers' && editorMode === 'SCENE' ? 'translate-y-0' : 'translate-y-full'}`}>
+        <LayersPanel 
+          layers={layers}
+          selectedObjectId={selectedObjectId}
+          activeLayerId={activeLayerId} // Pass active
+          onSelectLayer={setActiveLayerId} // Pass setter
+          objects={objects}
+          onAddLayer={handleAddLayer}
+          onRemoveLayer={handleRemoveLayer}
+          onUpdateLayer={handleUpdateLayer}
+          onMoveLayer={handleMoveLayer}
+          onAssignObjectToLayer={handleAssignObjectToLayer}
+          onClose={() => setActivePanel('none')}
+          className="rounded-t-2xl shadow-[0_-10px_40px_rgba(0,0,0,0.5)]"
+        />
+      </div>
+    </div>
+  );
+};

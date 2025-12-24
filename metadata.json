@@ -1,0 +1,5 @@
+{
+  "name": "GameBuilder Android Studio",
+  "description": "Un editor visual de juegos para Android estilo GDevelop, con gestión de escenas, objetos y propiedades.",
+  "requestFramePermissions": []
+}
