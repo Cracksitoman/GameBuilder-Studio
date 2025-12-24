@@ -1,5 +1,5 @@
 {
-  "name": "GameBuilder Android Studio",
-  "description": "Un editor visual de juegos para Android estilo GDevelop, con gestión de escenas, objetos y propiedades.",
+  "name": "Koda Engine",
+  "description": "El motor de juegos definitivo para Android. Crea, diseña y exporta con facilidad.",
   "requestFramePermissions": []
 }

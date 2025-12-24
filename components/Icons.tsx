@@ -71,7 +71,9 @@ import {
   Link2,
   Clapperboard,
   Grid,
-  Video // New
+  Video,
+  // Add Home icon
+  Home
 } from 'lucide-react';
 
 export {
@@ -146,5 +148,7 @@ export {
   Link2,
   Clapperboard,
   Grid,
-  Video
+  Video,
+  // Export Home icon
+  Home
 };
