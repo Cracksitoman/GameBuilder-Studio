@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Play, Save, Share2 } from './Icons';
+import { Play, Save, Share2, Undo, Redo } from './Icons';
 
 // Custom SVG Koda Logo
 const KodaLogo = ({ className = "w-8 h-8" }) => (
@@ -25,12 +25,20 @@ interface NavbarProps {
   onPreview: () => void;
   onSave: () => void;
   onQuickSave: () => void;
+  onUndo?: () => void;
+  onRedo?: () => void;
+  canUndo?: boolean;
+  canRedo?: boolean;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ 
   onPreview, 
   onSave, 
-  onQuickSave
+  onQuickSave,
+  onUndo,
+  onRedo,
+  canUndo,
+  canRedo
 }) => {
   return (
     <nav className="h-14 bg-gray-900 border-b border-gray-700 flex items-center justify-between px-4 select-none z-40 relative">
@@ -39,7 +47,28 @@ export const Navbar: React.FC<NavbarProps> = ({
         <span className="font-black text-xl tracking-tighter text-white hidden sm:inline">KODA <span className="text-orange-500 font-light">ENGINE</span></span>
       </div>
 
-      <div className="flex items-center space-x-2 md:space-x-4">
+      <div className="flex items-center space-x-4">
+        {/* Undo / Redo Controls */}
+        <div className="flex bg-gray-800 rounded-lg p-0.5 border border-gray-700">
+            <button 
+                onClick={onUndo} 
+                disabled={!canUndo}
+                className={`p-1.5 rounded transition-colors ${canUndo ? 'text-gray-300 hover:text-white hover:bg-gray-700' : 'text-gray-600 cursor-not-allowed'}`}
+                title="Deshacer (Ctrl+Z)"
+            >
+                <Undo className="w-4 h-4" />
+            </button>
+            <div className="w-px bg-gray-700 my-1"></div>
+            <button 
+                onClick={onRedo} 
+                disabled={!canRedo}
+                className={`p-1.5 rounded transition-colors ${canRedo ? 'text-gray-300 hover:text-white hover:bg-gray-700' : 'text-gray-600 cursor-not-allowed'}`}
+                title="Rehacer (Ctrl+Y)"
+            >
+                <Redo className="w-4 h-4" />
+            </button>
+        </div>
+
         <button 
           onClick={onPreview}
           className="flex items-center space-x-2 px-6 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-full transition-colors text-sm font-bold shadow-lg shadow-orange-900/30 active:scale-95"

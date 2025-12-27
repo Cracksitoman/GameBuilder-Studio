@@ -11,6 +11,8 @@ interface ExportModalProps {
     layers: Layer[];
     canvasConfig: CanvasConfig;
     assets: Asset[];
+    library?: GameObject[]; // Add library to export
+    scenes?: any[];
   };
 }
 
@@ -18,6 +20,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, gameD
   if (!isOpen) return null;
 
   const handleExportJSON = () => {
+    // Ensure the full data structure is preserved including library
     const dataStr = "data:text/plain;charset=utf-8," + encodeURIComponent(JSON.stringify(gameData, null, 2));
     const downloadAnchorNode = document.createElement('a');
     downloadAnchorNode.setAttribute("href", dataStr);
@@ -35,6 +38,9 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, gameD
       opacity: 0.5, color: '#ffffff' 
     };
 
+    // For HTML export, we only care about the Scene Objects (instances) for the runtime.
+    // gameData.objects contains the current scene's objects.
+    
     const htmlContent = `
 <!DOCTYPE html>
 <html lang="es">

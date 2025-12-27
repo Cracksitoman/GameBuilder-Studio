@@ -10,10 +10,10 @@ interface CanvasProps {
   currentTool: EditorTool;
   activeBrushId?: string | null; 
   brushSolid?: boolean; 
-  activeLayerId?: string | null; // NEW: Active Layer Check
+  activeLayerId?: string | null; 
   assets?: Asset[]; 
   canvasConfig: CanvasConfig;
-  cameraConfig?: { targetObjectId: string | null }; // NEW: Camera visualizer
+  cameraConfig?: { targetObjectId: string | null }; 
   
   // Grid Props
   showGrid: boolean;
@@ -24,9 +24,10 @@ interface CanvasProps {
   onSelectObject: (id: string | null) => void;
   onUpdateObject: (id: string, updates: Partial<GameObject>) => void;
   onEditObject: (obj: GameObject) => void;
+  // Drop is now handled globally in App.tsx via DOM calc, but we keep the prop interface compatible if needed
+  onDropObject: (id: string, x: number, y: number) => void;
 }
 
-// Define the types of interactions available
 type DragMode = 'NONE' | 'MOVE_ALL' | 'MOVE_X' | 'MOVE_Y' | 'RESIZE_X' | 'RESIZE_Y' | 'PAN_CANVAS';
 
 export const Canvas: React.FC<CanvasProps> = ({
@@ -45,12 +46,14 @@ export const Canvas: React.FC<CanvasProps> = ({
   onSetGridSize,
   onSelectObject,
   onUpdateObject,
-  onEditObject
+  onEditObject,
+  onDropObject
 }) => {
   const [zoom, setZoom] = useState(0.8);
   const [viewPos, setViewPos] = useState({ x: 0, y: 0 });
   const [isGridMenuOpen, setIsGridMenuOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const gameBoxRef = useRef<HTMLDivElement>(null); 
 
   // Update zoom automatically to fit when orientation changes
   useEffect(() => {
@@ -61,7 +64,6 @@ export const Canvas: React.FC<CanvasProps> = ({
      }
   }, [canvasConfig.mode]);
 
-  // --- CAMERA VISUALIZER HELPER ---
   const getCameraRect = () => {
       let x = 0;
       let y = 0;
@@ -79,7 +81,6 @@ export const Canvas: React.FC<CanvasProps> = ({
 
   const cameraRect = getCameraRect();
 
-
   // --- TILEMAP PAINTING HELPERS ---
   const handleTilePaint = (e: React.PointerEvent, obj: GameObject) => {
       if (!obj.tilemap) return;
@@ -93,7 +94,6 @@ export const Canvas: React.FC<CanvasProps> = ({
       const gx = Math.floor(clickX / tileSize);
       const gy = Math.floor(clickY / tileSize);
       
-      // Prevent painting outside bounds based on object width/height
       const maxGx = Math.floor(obj.width / tileSize);
       const maxGy = Math.floor(obj.height / tileSize);
       
@@ -105,7 +105,6 @@ export const Canvas: React.FC<CanvasProps> = ({
       if (currentTool === EditorTool.ERASER) {
           delete currentTiles[key];
       } else if (activeBrushId) {
-          // STORE DATA OBJECT with SOLID FLAG
           currentTiles[key] = { url: activeBrushId, solid: !!brushSolid };
       }
 
@@ -119,8 +118,6 @@ export const Canvas: React.FC<CanvasProps> = ({
         if (obj.id === selectedObjectId) {
             e.preventDefault();
             e.stopPropagation();
-            
-            // Perform initial paint
             handleTilePaint(e, obj);
             return;
         }
@@ -162,7 +159,6 @@ export const Canvas: React.FC<CanvasProps> = ({
       const scaledDeltaY = deltaY / zoom;
       const updates: Partial<GameObject> = {};
 
-      // Helper for snapping
       const snap = (val: number) => showGrid ? Math.round(val / gridSize) * gridSize : val;
 
       switch (effectiveMode) {
@@ -198,7 +194,7 @@ export const Canvas: React.FC<CanvasProps> = ({
 
   const handleDoubleClick = (e: React.MouseEvent, obj: GameObject) => {
     if (currentTool === EditorTool.HAND || e.button === 1) return;
-    if (obj.type === ObjectType.TILEMAP && (currentTool === EditorTool.BRUSH || currentTool === EditorTool.ERASER)) return; // Don't edit props on paint
+    if (obj.type === ObjectType.TILEMAP && (currentTool === EditorTool.BRUSH || currentTool === EditorTool.ERASER)) return; 
     e.stopPropagation();
     onEditObject(obj);
   };
@@ -255,15 +251,10 @@ export const Canvas: React.FC<CanvasProps> = ({
 
   const renderObject = (obj: GameObject) => {
     const isSelected = selectedObjectId === obj.id;
-    // Check if layer is hidden
     const layer = layers.find(l => l.id === obj.layerId);
     if (layer && !layer.visible) return null;
     const isLocked = layer?.locked || false;
-    
-    // LAYER ACTIVE CHECK
     const isOnActiveLayer = !activeLayerId || obj.layerId === activeLayerId;
-
-    // TILEMAP SPECIFIC VISUALS
     const isTilemap = obj.type === ObjectType.TILEMAP;
     const isPainting = isSelected && isTilemap && (currentTool === EditorTool.BRUSH || currentTool === EditorTool.ERASER);
 
@@ -275,12 +266,12 @@ export const Canvas: React.FC<CanvasProps> = ({
       height: `${obj.height}px`,
       transform: `rotate(${obj.rotation}deg)`,
       zIndex: obj.zIndex, 
-      opacity: isOnActiveLayer ? obj.opacity : obj.opacity * 0.5, // Dim inactive
+      opacity: isOnActiveLayer ? obj.opacity : obj.opacity * 0.5, 
       cursor: currentTool === EditorTool.HAND ? 'grab' : (isPainting ? 'crosshair' : (isSelected ? 'default' : (isLocked ? 'not-allowed' : 'pointer'))), 
       border: isSelected ? (isPainting ? '2px dashed cyan' : '1px solid rgba(59, 130, 246, 0.5)') : '1px solid transparent',
       imageRendering: 'pixelated',
       touchAction: 'none',
-      pointerEvents: (isLocked || !isOnActiveLayer) ? 'none' : 'auto', // CRITICAL: Only allow pointer events on active layer
+      pointerEvents: (isLocked || !isOnActiveLayer) ? 'none' : 'auto', 
       backgroundColor: obj.type === ObjectType.TEXT ? undefined : (isTilemap ? undefined : (obj.previewSpriteUrl ? 'transparent' : obj.color)),
       backgroundImage: (!isTilemap && obj.previewSpriteUrl) ? `url(${obj.previewSpriteUrl})` : undefined,
       backgroundSize: '100% 100%', 
@@ -301,7 +292,6 @@ export const Canvas: React.FC<CanvasProps> = ({
              startDrag(e, obj, currentTool === EditorTool.SELECT ? 'MOVE_ALL' : 'NONE');
            }
         }}
-        // Enable painting while moving mouse if button is held
         onPointerMove={(e) => {
             if (isPainting && e.buttons === 1) {
                 handleTilePaint(e, obj);
@@ -319,9 +309,7 @@ export const Canvas: React.FC<CanvasProps> = ({
                 {obj.name}
               </div>
             ) : isTilemap ? (
-                // RENDER TILEMAP GRID
                 <div className="w-full h-full relative">
-                    {/* Grid Lines (Visible only when selected) */}
                     {isSelected && (
                         <div 
                             className="absolute inset-0 opacity-20 pointer-events-none"
@@ -331,12 +319,9 @@ export const Canvas: React.FC<CanvasProps> = ({
                             }}
                         />
                     )}
-                    {/* Render Tiles */}
                     {obj.tilemap && Object.entries(obj.tilemap.tiles).map(([key, data]) => {
                         const [gx, gy] = key.split(',').map(Number);
                         const tileSize = obj.tilemap?.tileSize || 32;
-                        
-                        // Handle legacy (string) or new object structure
                         const assetId = typeof data === 'string' ? data : data.url;
                         const isSolid = typeof data === 'object' && data.solid;
 
@@ -352,7 +337,6 @@ export const Canvas: React.FC<CanvasProps> = ({
                                     backgroundImage: `url(${assetId})`,
                                     backgroundSize: 'contain',
                                     backgroundRepeat: 'no-repeat',
-                                    // Visual debug for solid tiles in Editor
                                     boxShadow: (isSelected && isSolid) ? 'inset 0 0 0 1px rgba(255,0,0,0.5), inset 0 0 10px rgba(255,0,0,0.2)' : 'none'
                                 }}
                             />
@@ -368,7 +352,6 @@ export const Canvas: React.FC<CanvasProps> = ({
             )}
         </div>
         
-        {/* Visual Indicator for GUI Elements */}
         {obj.isGui && (
             <div className="absolute top-0 right-0 p-0.5 bg-teal-900 rounded-bl text-teal-300 pointer-events-none" style={{transform: 'scale(0.8) origin(top right)'}}>
                 <MonitorSmartphone className="w-3 h-3" />
@@ -396,7 +379,6 @@ export const Canvas: React.FC<CanvasProps> = ({
                   {showGrid ? <Magnet className="w-5 h-5" /> : <Grid3x3 className="w-5 h-5" />}
               </button>
 
-              {/* Popover Menu for Grid */}
               {isGridMenuOpen && (
                   <div className="absolute right-full top-0 mr-2 bg-gray-800 border border-gray-700 rounded-lg shadow-xl p-2 w-32 animate-in fade-in slide-in-from-right-2">
                       <div className="text-[10px] text-gray-500 uppercase font-bold mb-2 px-1">Ajuste / Grid</div>
@@ -474,6 +456,8 @@ export const Canvas: React.FC<CanvasProps> = ({
         >
           {/* THE GAME RESOLUTION BOX (World Bounds / Stage) */}
           <div 
+             id="koda-stage-area" // GLOBAL ID FOR DRAG CALCULATION
+             ref={gameBoxRef}
              className="absolute bg-black shadow-2xl"
              style={{ 
                  left: 0, 

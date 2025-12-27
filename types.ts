@@ -29,7 +29,7 @@ export interface Asset {
   id: string;
   name: string;
   url: string;
-  type: 'image' | 'audio'; // Updated
+  type: 'image' | 'audio'; 
 }
 
 export interface AnimationFrame {
@@ -142,6 +142,7 @@ export interface TilemapData {
 
 export interface GameObject {
   id: string;
+  prototypeId?: string; // NEW: Links instance to library object
   name: string;
   type: ObjectType;
   x: number;
@@ -152,6 +153,7 @@ export interface GameObject {
   color: string;
   zIndex: number; 
   layerId: string;
+  group?: string; // Group/Folder Name
   visible: boolean;
   opacity: number;
   previewSpriteUrl?: string;
@@ -172,15 +174,14 @@ export interface CameraConfig {
     zoom?: number;
 }
 
-// NEW: Interface for Joystick Configuration
 export interface MobileControlsConfig {
     enabled: boolean;
-    joystickX: number; // Percentage 0-100
-    joystickY: number; // Percentage 0-100
-    joystickSize: number; // Pixels
-    buttonX: number; // Percentage 0-100
-    buttonY: number; // Percentage 0-100
-    buttonSize: number; // Pixels
+    joystickX: number; 
+    joystickY: number; 
+    joystickSize: number; 
+    buttonX: number; 
+    buttonY: number; 
+    buttonSize: number; 
     opacity: number;
     color: string;
 }
@@ -190,6 +191,7 @@ export interface Scene {
   name: string;
   objects: GameObject[];
   layers: Layer[];
+  groups?: string[]; // Defined Groups in Scene
   backgroundColor: string;
   camera?: CameraConfig;
 }
@@ -198,7 +200,7 @@ export interface CanvasConfig {
   width: number;
   height: number;
   mode: 'LANDSCAPE' | 'PORTRAIT';
-  mobileControls?: MobileControlsConfig; // Add to config
+  mobileControls?: MobileControlsConfig; 
 }
 
 export interface EditorState {

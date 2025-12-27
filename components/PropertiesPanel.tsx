@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { GameObject, ObjectType, BehaviorType, Behavior, AnimationClip, Variable, VariableType, Asset, EditorTool } from '../types';
-import { Layers, Move, Type, MousePointer2, X, Zap, Trash2, Activity, RotateCw, Plus, BrickWall, Compass, Crosshair, Magnet, Film, ImagePlus, ChevronDown, ChevronUp, Grid3x3, Hash, ToggleLeft, Variable as VariableIcon, Link2, Grid, Paintbrush, Eraser, MonitorSmartphone, Play, Settings, CheckSquare, Square, Code, BrickWall as WallIcon } from './Icons';
+import { Layers, Move, Type, MousePointer2, X, Zap, Trash2, Activity, RotateCw, Plus, BrickWall, Compass, Crosshair, Magnet, Film, ImagePlus, ChevronDown, ChevronUp, Grid3x3, Hash, ToggleLeft, Variable as VariableIcon, Link2, Grid, Paintbrush, Eraser, MonitorSmartphone, Play, Settings, CheckSquare, Square, Code, BrickWall as WallIcon, Box } from './Icons';
 
 interface PropertiesPanelProps {
   selectedObject: GameObject | null;
@@ -9,6 +9,7 @@ interface PropertiesPanelProps {
   globalVariables?: Variable[];
   assets?: Asset[];
   onUpdateObject: (id: string, updates: Partial<GameObject>) => void;
+  onDeleteObject?: (id: string) => void;
   onOpenAssetManager: (callback: (url: string) => void) => void;
   onSetBrush?: (tool: EditorTool, assetId: string | null) => void;
   activeBrushId?: string | null;
@@ -26,6 +27,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
   globalVariables = [],
   assets = [],
   onUpdateObject,
+  onDeleteObject,
   onOpenAssetManager,
   onSetBrush,
   activeBrushId,
@@ -56,6 +58,23 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
       </div>
     );
   }
+
+  // Determine if it is an instance or a prototype based on context
+  const isInstance = objects.some(o => o.id === selectedObject.id);
+
+  const handleDelete = () => {
+      if (!onDeleteObject) return;
+      
+      if (isInstance) {
+          if (window.confirm("¿Seguro que quieres eliminar este objeto de la escena?")) {
+              onDeleteObject(selectedObject.id);
+          }
+      } else {
+          // Library deletion usually handles its own confirmation in App.tsx logic for now, 
+          // or we can force it here. Let's call it directly as App.tsx handles library confirm.
+          onDeleteObject(selectedObject.id);
+      }
+  };
 
   const handleChange = (field: keyof GameObject, value: any) => {
     let parsedValue = value;
@@ -288,11 +307,31 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
            <span className="font-bold text-gray-200 text-sm truncate">Propiedades</span>
         </div>
         
-        {onClose && (
-          <button onClick={onClose} className="p-1 text-gray-400 hover:text-white bg-gray-700 rounded-full flex-shrink-0 ml-2">
-            <X className="w-4 h-4" />
-          </button>
-        )}
+        <div className="flex items-center space-x-1">
+            <button 
+                onClick={handleDelete}
+                className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-gray-700 rounded-lg transition-colors"
+                title="Eliminar"
+            >
+                <Trash2 className="w-4 h-4" />
+            </button>
+            {onClose && (
+            <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-white bg-gray-700 rounded-full ml-1">
+                <X className="w-4 h-4" />
+            </button>
+            )}
+        </div>
+      </div>
+
+      {/* Instance/Prototype Indicator */}
+      <div className={`px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-center border-b border-gray-800 ${isInstance ? 'bg-gray-900 text-gray-500' : 'bg-orange-900/30 text-orange-400'}`}>
+          {isInstance ? (
+              <span>Editando Instancia (Única)</span>
+          ) : (
+              <span className="flex items-center justify-center">
+                  <Box className="w-3 h-3 mr-1" /> Editando Prototipo (Librería)
+              </span>
+          )}
       </div>
 
       <div className="p-4 space-y-5 overflow-y-auto pb-20">
@@ -326,7 +365,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
             </div>
         )}
 
-        {/* --- TILEMAP SPECIFIC UI --- */}
+        {/* ... (Rest of component content identical) ... */}
         {selectedObject.type === ObjectType.TILEMAP && (
              <div className="space-y-3 p-3 bg-gray-800 rounded-xl border border-gray-700">
                  <label className="text-xs font-bold text-cyan-400 uppercase tracking-wider flex items-center">
@@ -398,7 +437,6 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
              </div>
         )}
 
-        {/* ... (Rest of component unchanged) ... */}
         {selectedObject.type === ObjectType.TEXT && (
             <div className="space-y-4">
                <div>
@@ -608,12 +646,13 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                   <label className="block text-[10px] text-gray-400 mb-1">ALTO</label>
                   <input type="number" value={selectedObject.height} onChange={(e) => handleChange('height', e.target.value)} className="w-full bg-gray-950 border border-gray-700 rounded px-2 py-2 text-sm text-white" />
                 </div>
+                {/* Hide Pos X/Y if editing prototype to avoid confusion, or keep it but it won't affect instances pos */}
                 <div>
-                  <label className="block text-[10px] text-gray-400 mb-1">X</label>
+                  <label className="block text-[10px] text-gray-400 mb-1">X {isInstance ? '' : '(Base)'}</label>
                   <input type="number" value={selectedObject.x} onChange={(e) => handleChange('x', e.target.value)} className="w-full bg-gray-950 border border-gray-700 rounded px-2 py-2 text-sm text-white" />
                 </div>
                 <div>
-                  <label className="block text-[10px] text-gray-400 mb-1">Y</label>
+                  <label className="block text-[10px] text-gray-400 mb-1">Y {isInstance ? '' : '(Base)'}</label>
                   <input type="number" value={selectedObject.y} onChange={(e) => handleChange('y', e.target.value)} className="w-full bg-gray-950 border border-gray-700 rounded px-2 py-2 text-sm text-white" />
                 </div>
              </div>
@@ -664,6 +703,17 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                  </div>
              </div>
         </div>
+
+        <div className="h-px bg-gray-800"></div>
+
+        {/* DELETE BUTTON (Big one at bottom) */}
+        <button 
+            onClick={handleDelete}
+            className="w-full py-3 bg-red-900/20 hover:bg-red-900/40 border border-red-800/50 rounded-xl text-red-400 font-bold text-xs flex items-center justify-center space-x-2 transition-all mt-8"
+        >
+            <Trash2 className="w-4 h-4" />
+            <span>{isInstance ? 'Eliminar de Escena' : 'Eliminar de Librería'}</span>
+        </button>
 
       </div>
     </div>

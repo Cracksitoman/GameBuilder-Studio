@@ -89,12 +89,17 @@ import {
   Book,
   Sidebar,
   ArrowLeft,
-  Volume2,    // NEW
-  Sun,        // NEW
-  Maximize2,  // NEW
-  Droplets,   // NEW (Particles)
-  MoveHorizontal, // NEW
-  Music // NEW
+  Volume2,
+  Sun,
+  Maximize2,
+  Droplets,
+  MoveHorizontal,
+  Music,
+  Undo, // NEW
+  Redo, // NEW
+  Folder, // NEW
+  FolderPlus, // NEW
+  FolderOpen // NEW
 } from 'lucide-react';
 
 export {
@@ -192,5 +197,10 @@ export {
   Maximize2,
   Droplets,
   MoveHorizontal,
-  Music
+  Music,
+  Undo,
+  Redo,
+  Folder,
+  FolderPlus,
+  FolderOpen
 };
