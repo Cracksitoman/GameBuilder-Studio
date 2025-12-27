@@ -4,33 +4,32 @@ export enum ObjectType {
   TEXT = 'TEXT',
   PLAYER = 'PLAYER',
   ENEMY = 'ENEMY',
-  TILEMAP = 'TILEMAP' // New
+  TILEMAP = 'TILEMAP'
 }
 
 export enum EditorTool {
-  SELECT = 'SELECT', // Move objects
-  RESIZE = 'RESIZE', // Resize objects
-  HAND = 'HAND',      // Move camera/canvas
-  BRUSH = 'BRUSH',    // Paint on Tilemaps
-  ERASER = 'ERASER'   // Erase tiles
+  SELECT = 'SELECT',
+  RESIZE = 'RESIZE',
+  HAND = 'HAND',
+  BRUSH = 'BRUSH',
+  ERASER = 'ERASER'
 }
 
-// --- BEHAVIORS SYSTEM ---
 export enum BehaviorType {
-  PLATFORMER = 'PLATFORMER', // Gravity, Jump, Walk
-  TOPDOWN = 'TOPDOWN',       // 8-direction movement (RPG)
-  PROJECTILE = 'PROJECTILE', // Linear movement (Bullets)
-  FOLLOW = 'FOLLOW',         // Follows player (AI)
-  ROTATE = 'ROTATE',         // Constant rotation
-  SINE_MOVEMENT = 'SINE',    // Floating movement
-  ANIMATION = 'ANIMATION'    // Sprite Animation Manager
+  PLATFORMER = 'PLATFORMER',
+  TOPDOWN = 'TOPDOWN',
+  PROJECTILE = 'PROJECTILE',
+  FOLLOW = 'FOLLOW',
+  ROTATE = 'ROTATE',
+  SINE_MOVEMENT = 'SINE',
+  ANIMATION = 'ANIMATION'
 }
 
 export interface Asset {
   id: string;
   name: string;
-  url: string; // Base64 Data URL
-  type: 'image';
+  url: string;
+  type: 'image' | 'audio'; // Updated
 }
 
 export interface AnimationFrame {
@@ -40,7 +39,7 @@ export interface AnimationFrame {
 
 export interface AnimationClip {
   id: string;
-  name: string; // e.g., "Idle", "Run", "Jump"
+  name: string;
   frames: AnimationFrame[];
   fps: number;
   loop: boolean;
@@ -50,12 +49,9 @@ export interface Behavior {
   id: string;
   type: BehaviorType;
   name: string;
-  // We use a generic record to store specific properties for each behavior
   properties: Record<string, any>; 
 }
-// ------------------------
 
-// --- VARIABLE SYSTEM ---
 export type VariableType = 'NUMBER' | 'BOOLEAN' | 'STRING';
 
 export interface Variable {
@@ -66,17 +62,48 @@ export interface Variable {
 }
 
 export interface TextBinding {
-  source: 'GLOBAL' | 'LOCAL' | 'OBJECT'; // Added OBJECT source
-  variableId: string; // Uses Variable Name as ID for simplicity in runtime lookup
-  targetObjectId?: string; // ID of the object if source is OBJECT
+  source: 'GLOBAL' | 'LOCAL' | 'OBJECT';
+  variableId: string;
+  targetObjectId?: string;
   prefix?: string;
   suffix?: string;
 }
-// ------------------------
 
-// --- EVENT SYSTEM TYPES ---
-export type ConditionType = 'COLLISION' | 'START_OF_SCENE' | 'KEY_PRESSED' | 'COMPARE_VARIABLE';
-export type ActionType = 'DESTROY' | 'RESTART_SCENE' | 'CHANGE_SCENE' | 'SET_VISIBLE' | 'MODIFY_VARIABLE'; 
+export type ConditionType = 
+  | 'COLLISION' 
+  | 'START_OF_SCENE' 
+  | 'KEY_PRESSED' 
+  | 'COMPARE_VARIABLE'
+  | 'TOUCH_INTERACTION'
+  | 'EVERY_X_SECONDS'
+  | 'DISTANCE_TO'
+  | 'IS_MOVING'
+  | 'IS_VISIBLE'
+  | 'COMPARE_POSITION';
+
+export type ActionType = 
+  | 'DESTROY' 
+  | 'RESTART_SCENE' 
+  | 'CHANGE_SCENE' 
+  | 'SET_VISIBLE' 
+  | 'MODIFY_VARIABLE'
+  | 'MOVE_TO_POINTER'
+  | 'CREATE_OBJECT'
+  | 'SET_TEXT'
+  | 'CAMERA_SHAKE'
+  | 'ROTATE_TOWARD'
+  | 'APPLY_FORCE'
+  | 'PLAY_ANIMATION'
+  | 'TOGGLE_BEHAVIOR'
+  | 'SPAWN_PARTICLES'
+  | 'PLAY_SOUND'
+  | 'SET_VELOCITY'
+  | 'STOP_MOVEMENT'
+  | 'SET_COLOR'
+  | 'SET_OPACITY'
+  | 'SET_SIZE'
+  | 'FLASH_EFFECT'
+  | 'SET_CAMERA_ZOOM';
 
 export interface EventCondition {
   id: string;
@@ -95,7 +122,6 @@ export interface GameEvent {
   conditions: EventCondition[];
   actions: EventAction[];
 }
-// ------------------------
 
 export interface Layer {
   id: string;
@@ -110,8 +136,7 @@ export interface TileData {
 }
 
 export interface TilemapData {
-  tileSize: number; // e.g. 32
-  // Key: "x,y" (grid coords), Value: Tile object or string (legacy support handled in runtime)
+  tileSize: number;
   tiles: Record<string, TileData | string>; 
 }
 
@@ -129,42 +154,51 @@ export interface GameObject {
   layerId: string;
   visible: boolean;
   opacity: number;
-  previewSpriteUrl?: string; // New: Holds the static sprite for the editor
-  // Physics properties
-  isObstacle: boolean; // New: If true, other objects collide with this
-  // GUI Property
-  isGui?: boolean; // New: If true, object is fixed to camera
-  // List of attached behaviors
+  previewSpriteUrl?: string;
+  isObstacle: boolean;
+  isGui?: boolean;
   behaviors: Behavior[]; 
-  // Object Specific Events
   events: GameEvent[]; 
-  // Local Variables
   variables: Variable[];
-  // Text Binding (Only for TEXT objects)
   textBinding?: TextBinding;
-  // Tilemap Data (Only for TILEMAP objects)
   tilemap?: TilemapData;
+  script?: string;
 }
 
 export interface CameraConfig {
-    targetObjectId: string | null; // ID of object to follow, or null for static 0,0
+    targetObjectId: string | null;
     smooth: boolean;
-    followSpeed: number; // 0-1 lerp factor
+    followSpeed: number;
+    zoom?: number;
+}
+
+// NEW: Interface for Joystick Configuration
+export interface MobileControlsConfig {
+    enabled: boolean;
+    joystickX: number; // Percentage 0-100
+    joystickY: number; // Percentage 0-100
+    joystickSize: number; // Pixels
+    buttonX: number; // Percentage 0-100
+    buttonY: number; // Percentage 0-100
+    buttonSize: number; // Pixels
+    opacity: number;
+    color: string;
 }
 
 export interface Scene {
   id: string;
   name: string;
   objects: GameObject[];
-  layers: Layer[]; // Layers are now per-scene
+  layers: Layer[];
   backgroundColor: string;
-  camera?: CameraConfig; // New Camera settings
+  camera?: CameraConfig;
 }
 
 export interface CanvasConfig {
   width: number;
   height: number;
   mode: 'LANDSCAPE' | 'PORTRAIT';
+  mobileControls?: MobileControlsConfig; // Add to config
 }
 
 export interface EditorState {

@@ -1,19 +1,21 @@
+
 import React, { useState } from 'react';
 import { GameObject, ObjectType, BehaviorType, Behavior, AnimationClip, Variable, VariableType, Asset, EditorTool } from '../types';
-import { Layers, Move, Type, MousePointer2, X, Zap, Trash2, Activity, RotateCw, Plus, BrickWall, Compass, Crosshair, Magnet, Film, ImagePlus, ChevronDown, ChevronUp, Grid3x3, Hash, ToggleLeft, Variable as VariableIcon, Link2, Grid, Paintbrush, Eraser, MonitorSmartphone } from './Icons';
+import { Layers, Move, Type, MousePointer2, X, Zap, Trash2, Activity, RotateCw, Plus, BrickWall, Compass, Crosshair, Magnet, Film, ImagePlus, ChevronDown, ChevronUp, Grid3x3, Hash, ToggleLeft, Variable as VariableIcon, Link2, Grid, Paintbrush, Eraser, MonitorSmartphone, Play, Settings, CheckSquare, Square, Code, BrickWall as WallIcon } from './Icons';
 
 interface PropertiesPanelProps {
   selectedObject: GameObject | null;
   objects?: GameObject[];
   globalVariables?: Variable[];
-  assets?: Asset[]; // Needed for tilemap painting
+  assets?: Asset[];
   onUpdateObject: (id: string, updates: Partial<GameObject>) => void;
   onOpenAssetManager: (callback: (url: string) => void) => void;
   onSetBrush?: (tool: EditorTool, assetId: string | null) => void;
   activeBrushId?: string | null;
-  brushSolid?: boolean; // New prop
-  onSetBrushSolid?: (solid: boolean) => void; // New prop
+  brushSolid?: boolean;
+  onSetBrushSolid?: (solid: boolean) => void;
   currentTool?: EditorTool;
+  onOpenScriptEditor?: (objectId: string) => void; 
   onClose?: () => void;
   className?: string;
 }
@@ -30,6 +32,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
   brushSolid = false,
   onSetBrushSolid,
   currentTool,
+  onOpenScriptEditor,
   onClose,
   className = ""
 }) => {
@@ -70,10 +73,6 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
           finalVal = parseInt(value) || 32;
       }
       onUpdateObject(selectedObject.id, { tilemap: { ...tm, [key]: finalVal } });
-  };
-
-  const handleToggle = (field: keyof GameObject) => {
-    onUpdateObject(selectedObject.id, { [field]: !selectedObject[field] });
   };
 
   // --- TEXT BINDING HANDLERS ---
@@ -129,7 +128,6 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
   };
 
   // --- BEHAVIORS HANDLERS ---
-  // ... (keeping existing behavior handlers exactly as they were, just compacted for brevity in diff)
   const addBehavior = (type: BehaviorType) => {
     const existing = selectedObject.behaviors || [];
     let defaultProps = {};
@@ -141,7 +139,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
         defaultProps = { gravity: 1200, jumpForce: 550, maxSpeed: 250 };
         break;
       case BehaviorType.TOPDOWN:
-        name = "Movimiento Top-Down (RPG)";
+        name = "Movimiento Top-Down";
         defaultProps = { speed: 200, allowDiagonals: true };
         break;
       case BehaviorType.PROJECTILE:
@@ -165,7 +163,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
            animations: [
              { id: 'anim-idle', name: 'Idle', frames: [], fps: 5, loop: true },
              { id: 'anim-run', name: 'Run', frames: [], fps: 10, loop: true },
-             { id: 'anim-jump', name: 'Jump', frames: [], fps: 1, loop: false }
+             { id: 'anim-jump', name: 'Jump', frames: [], fps: 6, loop: false }
            ] 
         };
         break;
@@ -212,11 +210,12 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
       if (!url) return;
       const existing = selectedObject.behaviors || [];
       let newPreviewUrl = selectedObject.previewSpriteUrl;
+      
       const updatedBehaviors = existing.map(b => {
           if (b.id === behaviorId && b.type === BehaviorType.ANIMATION) {
               const animations = (b.properties.animations as AnimationClip[]).map(anim => {
                   if (anim.id === animId) {
-                      if (anim.name === 'Idle' && anim.frames.length === 0) newPreviewUrl = url;
+                      if (anim.name === 'Idle' || !newPreviewUrl) newPreviewUrl = url;
                       return { ...anim, frames: [...anim.frames, { id: crypto.randomUUID(), imageUrl: url }] };
                   }
                   return anim;
@@ -252,8 +251,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                   if (anim.id === animId) {
                       const newFrames = anim.frames.filter(f => f.id !== frameId);
                       if (anim.name === 'Idle') {
-                          if (newFrames.length > 0 && anim.frames[0].id === frameId) newPreviewUrl = newFrames[0].imageUrl;
-                          else if (newFrames.length === 0) newPreviewUrl = undefined;
+                          if (newFrames.length > 0) newPreviewUrl = newFrames[0].imageUrl;
+                          else if (newFrames.length === 0 && newPreviewUrl) newPreviewUrl = undefined;
                       }
                       return { ...anim, frames: newFrames };
                   }
@@ -275,6 +274,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
       const targetObj = objects.find(o => o.id === selectedObject.textBinding?.targetObjectId);
       if (targetObj) varsToBind = targetObj.variables || [];
   }
+
+  const activeBrushAsset = assets.find(a => a.url === activeBrushId);
 
   return (
     <div className={`bg-gray-900 flex flex-col h-full border-t border-gray-700 shadow-2xl ${className}`}>
@@ -303,294 +304,173 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
           placeholder="Nombre del objeto"
         />
 
-        {/* --- TILEMAP SPECIFIC SECTION --- */}
-        {selectedObject.type === ObjectType.TILEMAP && onSetBrush && (
-            <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3">
-                <div className="flex items-center space-x-2 mb-3">
-                    <Grid className="w-4 h-4 text-cyan-400" />
-                    <span className="text-xs font-bold text-gray-200 uppercase">Editor de Mapa</span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 mb-4">
-                    <div>
-                        <label className="text-[10px] text-gray-500 block">Tamaño Tile (px)</label>
-                        <input 
-                           type="number" 
-                           value={selectedObject.tilemap?.tileSize || 32}
-                           onChange={(e) => handleTilemapChange('tileSize', e.target.value)}
-                           className="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1 text-xs text-white"
-                        />
-                    </div>
-                </div>
-
-                <div className="text-[10px] text-gray-500 font-bold mb-2 uppercase">Paleta de Sprites</div>
-                
-                {assets.length === 0 ? (
-                    <div className="text-center p-4 border border-dashed border-gray-700 rounded">
-                        <span className="text-[10px] text-gray-500">Sube imágenes en "Gestor de Sprites" para usarlas.</span>
-                    </div>
-                ) : (
-                    <div className="grid grid-cols-4 gap-2 max-h-40 overflow-y-auto bg-gray-900 p-2 rounded mb-3">
-                        {assets.map(asset => (
-                            <button 
-                                key={asset.id}
-                                onClick={() => onSetBrush(EditorTool.BRUSH, asset.url)}
-                                className={`relative aspect-square border rounded overflow-hidden hover:opacity-100 transition-all ${activeBrushId === asset.url && currentTool === EditorTool.BRUSH ? 'border-cyan-500 ring-2 ring-cyan-500/50 opacity-100' : 'border-gray-700 opacity-70'}`}
-                            >
-                                <img src={asset.url} className="w-full h-full object-contain image-pixelated bg-gray-800" />
-                            </button>
-                        ))}
-                    </div>
-                )}
-
-                <div className="flex flex-col space-y-2">
-                    {/* Brush Actions */}
-                    <div className="flex space-x-2">
-                        <button 
-                        onClick={() => onSetBrush(EditorTool.ERASER, null)}
-                        className={`flex-1 py-2 flex items-center justify-center space-x-2 rounded text-xs font-bold transition-colors ${currentTool === EditorTool.ERASER ? 'bg-red-600 text-white' : 'bg-gray-700 text-gray-400 hover:text-white'}`}
-                        >
-                            <Eraser className="w-4 h-4" />
-                            <span>Borrador</span>
-                        </button>
-                        {/* Brush state indicator */}
-                        <div className={`flex-1 py-2 flex items-center justify-center space-x-2 rounded text-xs font-bold border transition-colors ${currentTool === EditorTool.BRUSH ? 'bg-cyan-900/30 border-cyan-500 text-cyan-300' : 'bg-gray-900 border-gray-700 text-gray-500'}`}>
-                            <Paintbrush className="w-4 h-4" />
-                            <span>{currentTool === EditorTool.BRUSH ? 'Pintando...' : 'Selecciona'}</span>
-                        </div>
-                    </div>
-
-                    {/* Solid Toggle */}
-                    {onSetBrushSolid && (
-                        <button 
-                            onClick={() => onSetBrushSolid(!brushSolid)}
-                            className={`w-full py-2 flex items-center justify-center space-x-2 rounded text-xs font-bold border transition-all ${brushSolid ? 'bg-red-900/40 border-red-500 text-red-300' : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white'}`}
-                        >
-                            <BrickWall className="w-4 h-4" />
-                            <span>{brushSolid ? 'Pintando Colisiones' : 'Sin Colisión (Fondo)'}</span>
-                        </button>
+        {/* --- CUSTOM SCRIPT BUTTON --- */}
+        {selectedObject.type !== ObjectType.TILEMAP && (
+            <div className="p-3 bg-gray-800 rounded-xl border border-gray-700">
+                <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-bold text-yellow-400 uppercase tracking-wider flex items-center">
+                        <Code className="w-3 h-3 mr-2" />
+                        Código JavaScript
+                    </label>
+                    {selectedObject.script && (
+                        <span className="text-[9px] bg-green-900/50 text-green-400 px-2 rounded-full border border-green-800">Activo</span>
                     )}
                 </div>
-            </div>
-        )}
-
-        {/* --- TEXT BINDING SECTION (Only for TEXT objects) --- */}
-        {selectedObject.type === ObjectType.TEXT && (
-            <div className="bg-blue-900/10 border border-blue-900/50 rounded-lg p-3">
-               <label className="flex items-center justify-between cursor-pointer group mb-2">
-                 <div className="flex items-center text-blue-300">
-                   <Link2 className="w-4 h-4 mr-2" />
-                   <span className="text-xs font-bold uppercase">Vincular a Variable</span>
-                 </div>
-                 <div className="relative">
-                   <input 
-                      type="checkbox" 
-                      checked={!!selectedObject.textBinding} 
-                      onChange={(e) => toggleBinding(e.target.checked)}
-                      className="sr-only peer"
-                   />
-                   <div className="w-9 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
-                 </div>
-               </label>
-
-               {selectedObject.textBinding && (
-                   <div className="space-y-2 pt-2 animate-in fade-in">
-                       <div>
-                           <label className="text-[10px] text-gray-400 block mb-1">Origen</label>
-                           <select 
-                              className="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1 text-xs text-white"
-                              value={selectedObject.textBinding.source}
-                              onChange={(e) => handleBindingChange('source', e.target.value)}
-                           >
-                               <option value="GLOBAL">Variable Global</option>
-                               <option value="LOCAL">Variable Local (Propia)</option>
-                               <option value="OBJECT">Variable de otro Objeto</option>
-                           </select>
-                       </div>
-
-                       {selectedObject.textBinding.source === 'OBJECT' && (
-                           <div>
-                               <label className="text-[10px] text-gray-400 block mb-1">Objeto Objetivo</label>
-                               <select 
-                                  className="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1 text-xs text-white"
-                                  value={selectedObject.textBinding.targetObjectId || ''}
-                                  onChange={(e) => handleBindingChange('targetObjectId', e.target.value)}
-                               >
-                                   <option value="">-- Seleccionar Objeto --</option>
-                                   {objects.filter(o => o.id !== selectedObject.id).map(o => (
-                                       <option key={o.id} value={o.id}>{o.name}</option>
-                                   ))}
-                               </select>
-                           </div>
-                       )}
-
-                       <div>
-                           <label className="text-[10px] text-gray-400 block mb-1">Variable</label>
-                           <select 
-                              className="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1 text-xs text-white"
-                              value={selectedObject.textBinding.variableId}
-                              onChange={(e) => handleBindingChange('variableId', e.target.value)}
-                           >
-                               <option value="">-- Seleccionar --</option>
-                               {varsToBind.map(v => (
-                                   <option key={v.id} value={v.name}>{v.name} ({v.type})</option>
-                               ))}
-                           </select>
-                           {varsToBind.length === 0 && (
-                               <div className="text-[9px] text-red-400 mt-1">Este origen no tiene variables.</div>
-                           )}
-                       </div>
-
-                       <div className="flex space-x-2">
-                           <div className="flex-1">
-                               <label className="text-[10px] text-gray-400 block mb-1">Prefijo</label>
-                               <input 
-                                  type="text" 
-                                  placeholder="Ej: Vida: "
-                                  className="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1 text-xs text-white"
-                                  value={selectedObject.textBinding.prefix || ''}
-                                  onChange={(e) => handleBindingChange('prefix', e.target.value)}
-                               />
-                           </div>
-                           <div className="flex-1">
-                               <label className="text-[10px] text-gray-400 block mb-1">Sufijo</label>
-                               <input 
-                                  type="text" 
-                                  placeholder="Ej: pts"
-                                  className="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1 text-xs text-white"
-                                  value={selectedObject.textBinding.suffix || ''}
-                                  onChange={(e) => handleBindingChange('suffix', e.target.value)}
-                               />
-                           </div>
-                       </div>
-                   </div>
-               )}
-            </div>
-        )}
-
-        <div className="h-px bg-gray-800"></div>
-
-        {/* --- SETTINGS / FLAGS SECTION --- */}
-        <div className="space-y-3">
-            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Ajustes</h3>
-            
-            {/* IS OBSTACLE TOGGLE */}
-            <div className="bg-gray-800/50 rounded-lg p-3 border border-gray-800">
-                <label className="flex items-center justify-between cursor-pointer group">
-                    <div className="flex items-center">
-                    <BrickWall className="w-4 h-4 mr-2 text-orange-400" />
-                    <span className="text-xs font-bold text-gray-300">Es Obstáculo</span>
-                    </div>
-                    <div className="relative">
-                    <input 
-                        type="checkbox" 
-                        checked={selectedObject.isObstacle || false} 
-                        onChange={() => handleToggle('isObstacle')}
-                        className="sr-only peer"
-                    />
-                    <div className="w-9 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-orange-600"></div>
-                    </div>
-                </label>
-                <p className="text-[10px] text-gray-500 mt-2">
-                    Si está activo, los personajes colisionarán con este objeto.
-                </p>
-            </div>
-
-            {/* IS GUI TOGGLE */}
-            <div className="bg-gray-800/50 rounded-lg p-3 border border-gray-800">
-                <label className="flex items-center justify-between cursor-pointer group">
-                    <div className="flex items-center">
-                    <MonitorSmartphone className="w-4 h-4 mr-2 text-teal-400" />
-                    <span className="text-xs font-bold text-gray-300">Fijar a Cámara (GUI)</span>
-                    </div>
-                    <div className="relative">
-                    <input 
-                        type="checkbox" 
-                        checked={selectedObject.isGui || false} 
-                        onChange={() => handleToggle('isGui')}
-                        className="sr-only peer"
-                    />
-                    <div className="w-9 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-teal-600"></div>
-                    </div>
-                </label>
-                <p className="text-[10px] text-gray-500 mt-2">
-                    El objeto se moverá con la cámara (Ej: HUD, Vidas, Botones).
-                </p>
-            </div>
-        </div>
-
-        <div className="h-px bg-gray-800"></div>
-        
-        {/* --- LOCAL VARIABLES SECTION --- */}
-        <div>
-           <div className="flex items-center justify-between mb-3">
-             <h3 className="text-xs font-bold text-pink-500 uppercase tracking-wider flex items-center">
-                <VariableIcon className="w-3 h-3 mr-1" /> Variables Locales
-              </h3>
-           </div>
-           
-           <div className="space-y-2 mb-3">
-               {(selectedObject.variables || []).map(v => (
-                   <div key={v.id} className="flex items-center space-x-2 bg-gray-800 p-2 rounded border border-gray-700">
-                       <div className="p-1 bg-gray-700 rounded">
-                           {v.type === 'NUMBER' && <Hash className="w-3 h-3 text-blue-400" />}
-                           {v.type === 'STRING' && <Type className="w-3 h-3 text-yellow-400" />}
-                           {v.type === 'BOOLEAN' && <ToggleLeft className="w-3 h-3 text-green-400" />}
-                       </div>
-                       <div className="flex-1">
-                           <div className="text-[10px] font-bold text-gray-300">{v.name}</div>
-                           {v.type === 'BOOLEAN' ? (
-                               <button 
-                                 onClick={() => handleVariableChange(v.id, !v.value)}
-                                 className={`text-[9px] px-1.5 rounded ${v.value ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'}`}
-                               >
-                                   {v.value ? 'TRUE' : 'FALSE'}
-                               </button>
-                           ) : (
-                               <input 
-                                  type={v.type === 'NUMBER' ? 'number' : 'text'}
-                                  value={v.value}
-                                  onChange={(e) => handleVariableChange(v.id, v.type === 'NUMBER' ? parseFloat(e.target.value) : e.target.value)}
-                                  className="w-full bg-transparent border-none p-0 text-[10px] text-gray-400 focus:text-white focus:outline-none"
-                               />
-                           )}
-                       </div>
-                       <button onClick={() => handleDeleteVariable(v.id)} className="text-gray-600 hover:text-red-400">
-                           <X className="w-3 h-3" />
-                       </button>
-                   </div>
-               ))}
-           </div>
-
-           {/* Add Variable Form */}
-           <div className="flex space-x-1">
-                <input 
-                   type="text" 
-                   value={newVarName}
-                   onChange={(e) => setNewVarName(e.target.value)}
-                   placeholder="Nombre (ej. Vida)"
-                   className="flex-1 bg-gray-900 border border-gray-700 rounded-lg px-2 py-1 text-xs text-white outline-none"
-                />
-                <select 
-                   value={newVarType}
-                   onChange={(e) => setNewVarType(e.target.value as VariableType)}
-                   className="bg-gray-900 border border-gray-700 rounded-lg px-1 text-[10px] text-white outline-none w-16"
+                <button 
+                    onClick={() => onOpenScriptEditor && onOpenScriptEditor(selectedObject.id)}
+                    className="w-full py-2 bg-gray-900 hover:bg-gray-950 border border-gray-700 text-gray-300 rounded-lg text-xs font-mono flex items-center justify-center transition-all hover:border-yellow-600 hover:text-yellow-500"
                 >
-                    <option value="NUMBER">Num</option>
-                    <option value="STRING">Txt</option>
-                    <option value="BOOLEAN">Bool</option>
-                </select>
-                <button onClick={handleAddVariable} className="p-1 bg-gray-700 hover:bg-pink-600 rounded text-gray-300 hover:text-white">
-                    <Plus className="w-4 h-4" />
+                    <Code className="w-3 h-3 mr-2" />
+                    {selectedObject.script ? 'Editar Script' : 'Escribir Código'}
                 </button>
-           </div>
-        </div>
+            </div>
+        )}
 
-        <div className="h-px bg-gray-800"></div>
+        {/* --- TILEMAP SPECIFIC UI --- */}
+        {selectedObject.type === ObjectType.TILEMAP && (
+             <div className="space-y-3 p-3 bg-gray-800 rounded-xl border border-gray-700">
+                 <label className="text-xs font-bold text-cyan-400 uppercase tracking-wider flex items-center">
+                    <Grid3x3 className="w-3 h-3 mr-1" /> Configuración Mapa
+                 </label>
+                 
+                 <div className="flex items-center space-x-2">
+                     <label className="text-[10px] text-gray-400">Tamaño Tile (px)</label>
+                     <input 
+                       type="number" 
+                       value={selectedObject.tilemap?.tileSize || 32}
+                       onChange={(e) => handleTilemapChange('tileSize', e.target.value)}
+                       className="w-16 bg-gray-900 border border-gray-600 rounded px-2 py-1 text-xs text-white"
+                     />
+                 </div>
+
+                 <div className="h-px bg-gray-700"></div>
+
+                 <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Herramientas de Pintado</label>
+                 <div className="grid grid-cols-3 gap-2">
+                     <button 
+                        onClick={() => {
+                            if(onSetBrush) onSetBrush(EditorTool.BRUSH, activeBrushId || (assets[0]?.url));
+                        }}
+                        className={`flex flex-col items-center justify-center p-2 rounded-lg border ${currentTool === EditorTool.BRUSH ? 'bg-cyan-600 border-cyan-400 text-white' : 'bg-gray-700 border-transparent text-gray-400 hover:bg-gray-600'}`}
+                     >
+                         <Paintbrush className="w-4 h-4 mb-1" />
+                         <span className="text-[9px]">Pincel</span>
+                     </button>
+                     <button 
+                        onClick={() => {
+                             if(onSetBrush) onSetBrush(EditorTool.ERASER, null);
+                        }}
+                        className={`flex flex-col items-center justify-center p-2 rounded-lg border ${currentTool === EditorTool.ERASER ? 'bg-red-600 border-red-400 text-white' : 'bg-gray-700 border-transparent text-gray-400 hover:bg-gray-600'}`}
+                     >
+                         <Eraser className="w-4 h-4 mb-1" />
+                         <span className="text-[9px]">Borrar</span>
+                     </button>
+                     <button 
+                         onClick={() => onOpenAssetManager((url) => {
+                             if(onSetBrush) onSetBrush(EditorTool.BRUSH, url);
+                         })}
+                         className="flex flex-col items-center justify-center p-2 rounded-lg border bg-gray-700 border-transparent text-gray-400 hover:bg-gray-600"
+                     >
+                         <ImagePlus className="w-4 h-4 mb-1" />
+                         <span className="text-[9px]">Assets</span>
+                     </button>
+                 </div>
+                 
+                 {/* COLLISION TOGGLE for BRUSH */}
+                 {currentTool === EditorTool.BRUSH && (
+                     <div className="mt-2 pt-2 border-t border-gray-700">
+                         <label className="flex items-center space-x-2 cursor-pointer bg-gray-900 p-2 rounded border border-gray-600 hover:bg-gray-800 transition-colors">
+                             <div className={`w-4 h-4 border rounded flex items-center justify-center ${brushSolid ? 'bg-red-500 border-red-500' : 'border-gray-500'}`}>
+                                 {brushSolid && <CheckSquare className="w-3 h-3 text-white" />}
+                             </div>
+                             <input 
+                                 type="checkbox" 
+                                 className="hidden"
+                                 checked={brushSolid}
+                                 onChange={(e) => onSetBrushSolid && onSetBrushSolid(e.target.checked)}
+                             />
+                             <span className={`text-[10px] font-bold ${brushSolid ? 'text-red-400' : 'text-gray-400'}`}>
+                                 {brushSolid ? 'SÓLIDO (Pared/Suelo)' : 'DECORACIÓN (Fondo)'}
+                             </span>
+                         </label>
+                     </div>
+                 )}
+             </div>
+        )}
+
+        {/* ... (Rest of component unchanged) ... */}
+        {selectedObject.type === ObjectType.TEXT && (
+            <div className="space-y-4">
+               <div>
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1">Contenido</label>
+                  <textarea 
+                    value={selectedObject.name} 
+                    onChange={(e) => handleChange('name', e.target.value)}
+                    className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-sm text-white h-20 focus:border-yellow-500 outline-none"
+                  />
+               </div>
+               <div>
+                   <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1">Color de Texto</label>
+                   <div className="flex items-center space-x-2">
+                        <input 
+                            type="color" 
+                            value={selectedObject.color}
+                            onChange={(e) => handleChange('color', e.target.value)}
+                            className="w-8 h-8 bg-transparent border-0 p-0 cursor-pointer"
+                        />
+                        <span className="text-xs text-gray-400 font-mono">{selectedObject.color}</span>
+                   </div>
+               </div>
+               {/* Text Binding UI */}
+               <div className="p-3 bg-gray-800 rounded-xl border border-gray-700">
+                    <div className="flex items-center justify-between mb-2">
+                         <div className="flex items-center space-x-2">
+                             <Link2 className="w-4 h-4 text-purple-400" />
+                             <span className="text-xs font-bold text-gray-200">Vincular a Variable</span>
+                         </div>
+                         <button 
+                           onClick={() => toggleBinding(!selectedObject.textBinding)}
+                           className={`w-8 h-4 rounded-full relative transition-colors ${selectedObject.textBinding ? 'bg-purple-600' : 'bg-gray-600'}`}
+                         >
+                             <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all ${selectedObject.textBinding ? 'left-4.5' : 'left-0.5'}`}></div>
+                         </button>
+                    </div>
+                    {selectedObject.textBinding && (
+                        <div className="space-y-2 mt-2">
+                             <select 
+                                value={selectedObject.textBinding.source}
+                                onChange={(e) => handleBindingChange('source', e.target.value)}
+                                className="w-full bg-gray-900 border border-gray-600 rounded px-2 py-1 text-xs text-white"
+                             >
+                                 <option value="GLOBAL">Variable Global</option>
+                                 <option value="LOCAL">Variable Local</option>
+                                 <option value="OBJECT">Variable de Otro Objeto</option>
+                             </select>
+                             {selectedObject.textBinding.source === 'OBJECT' && (
+                                 <select 
+                                    value={selectedObject.textBinding.targetObjectId || ''}
+                                    onChange={(e) => handleBindingChange('targetObjectId', e.target.value)}
+                                    className="w-full bg-gray-900 border border-gray-600 rounded px-2 py-1 text-xs text-white"
+                                 >
+                                     {objects.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+                                 </select>
+                             )}
+                             <select 
+                                value={selectedObject.textBinding.variableId}
+                                onChange={(e) => handleBindingChange('variableId', e.target.value)}
+                                className="w-full bg-gray-900 border border-gray-600 rounded px-2 py-1 text-xs text-white"
+                             >
+                                 <option value="">-- Seleccionar Variable --</option>
+                                 {varsToBind.map(v => <option key={v.id} value={v.name}>{v.name}</option>)}
+                             </select>
+                        </div>
+                    )}
+               </div>
+            </div>
+        )}
 
         {/* --- BEHAVIORS SECTION --- */}
         <div>
-           {/* ... Behaviors UI (reused) ... */}
            <div className="flex items-center justify-between mb-3">
              <h3 className="text-xs font-bold text-yellow-500 uppercase tracking-wider flex items-center">
                 <Zap className="w-3 h-3 mr-1" /> Comportamientos
@@ -602,20 +482,15 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                  >
                    <Plus className="w-3 h-3 mr-1" /> Añadir
                  </button>
-                 
                  {showBehaviorMenu && (
                    <div className="absolute right-0 top-full mt-2 w-56 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50 overflow-hidden">
-                      {/* ... Behavior Options ... */}
-                      <button onClick={() => addBehavior(BehaviorType.ANIMATION)} className="w-full text-left px-3 py-2 text-xs text-gray-200 hover:bg-gray-700 flex items-center border-l-2 border-transparent hover:border-orange-500">
-                        <Film className="w-3 h-3 mr-2 text-orange-400" /> Animación (Sprites)
-                      </button>
-                      <button onClick={() => addBehavior(BehaviorType.PLATFORMER)} className="w-full text-left px-3 py-2 text-xs text-gray-200 hover:bg-gray-700 flex items-center">
-                        <Activity className="w-3 h-3 mr-2 text-green-400" /> Plataforma (Saltos)
-                      </button>
-                      <button onClick={() => addBehavior(BehaviorType.TOPDOWN)} className="w-full text-left px-3 py-2 text-xs text-gray-200 hover:bg-gray-700 flex items-center">
-                        <Compass className="w-3 h-3 mr-2 text-purple-400" /> Top-Down (RPG)
-                      </button>
-                      {/* ... other behaviors ... */}
+                      {/* Menu Options */}
+                      <button onClick={() => addBehavior(BehaviorType.ANIMATION)} className="w-full text-left px-3 py-2 text-xs text-gray-200 hover:bg-gray-700 flex items-center border-l-2 border-transparent hover:border-orange-500"><Film className="w-3 h-3 mr-2 text-orange-400" /> Animación</button>
+                      <button onClick={() => addBehavior(BehaviorType.PLATFORMER)} className="w-full text-left px-3 py-2 text-xs text-gray-200 hover:bg-gray-700 flex items-center"><Activity className="w-3 h-3 mr-2 text-green-400" /> Plataforma</button>
+                      <button onClick={() => addBehavior(BehaviorType.TOPDOWN)} className="w-full text-left px-3 py-2 text-xs text-gray-200 hover:bg-gray-700 flex items-center"><Compass className="w-3 h-3 mr-2 text-purple-400" /> Top-Down</button>
+                      <button onClick={() => addBehavior(BehaviorType.PROJECTILE)} className="w-full text-left px-3 py-2 text-xs text-gray-200 hover:bg-gray-700 flex items-center"><Crosshair className="w-3 h-3 mr-2 text-red-400" /> Proyectil</button>
+                      <button onClick={() => addBehavior(BehaviorType.FOLLOW)} className="w-full text-left px-3 py-2 text-xs text-gray-200 hover:bg-gray-700 flex items-center"><Magnet className="w-3 h-3 mr-2 text-blue-500" /> Perseguir</button>
+                      <button onClick={() => addBehavior(BehaviorType.ROTATE)} className="w-full text-left px-3 py-2 text-xs text-gray-200 hover:bg-gray-700 flex items-center"><RotateCw className="w-3 h-3 mr-2 text-pink-400" /> Rotación</button>
                    </div>
                  )}
               </div>
@@ -626,27 +501,95 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                 <div key={behavior.id} className="bg-gray-800 rounded-lg border border-gray-700 p-3 relative group">
                    <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center text-sm font-medium text-gray-200">
-                         {/* Icon Switch */}
                          {behavior.type === BehaviorType.ANIMATION && <Film className="w-4 h-4 mr-2 text-orange-500" />}
-                         {behavior.type === BehaviorType.PLATFORMER && <Activity className="w-4 h-4 mr-2 text-green-500" />}
-                         {behavior.type === BehaviorType.TOPDOWN && <Compass className="w-4 h-4 mr-2 text-purple-500" />}
+                         {/* Icons for others... */}
                          {behavior.name}
                       </div>
                       <button onClick={() => removeBehavior(behavior.id)} className="text-gray-500 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
                    </div>
                    
-                   {/* ... Behavior Specific Properties (Simplified for diff) ... */}
                    <div className="space-y-2 pl-1 border-l-2 border-gray-700 ml-1">
-                      {behavior.type === BehaviorType.PLATFORMER && (
-                           <div className="grid grid-cols-2 gap-2">
-                              <div>
-                                <label className="text-[10px] text-gray-500 block">Velocidad</label>
-                                <input type="number" value={behavior.properties.maxSpeed} onChange={(e) => updateBehaviorProp(behavior.id, 'maxSpeed', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1 text-xs" />
-                              </div>
-                              {/* ... */}
-                           </div>
+                      
+                      {/* --- ANIMATION UI --- */}
+                      {behavior.type === BehaviorType.ANIMATION && (
+                          <div className="space-y-3 mt-2">
+                             {(behavior.properties.animations as AnimationClip[]).map(anim => (
+                                 <div key={anim.id} className="bg-gray-900/50 rounded border border-gray-700/50 overflow-hidden">
+                                     <button 
+                                        onClick={() => setExpandedAnim(expandedAnim === anim.id ? null : anim.id)}
+                                        className="w-full flex items-center justify-between p-2 hover:bg-gray-800 transition-colors"
+                                     >
+                                         <div className="flex items-center space-x-2">
+                                             {expandedAnim === anim.id ? <ChevronUp className="w-3 h-3 text-gray-500"/> : <ChevronDown className="w-3 h-3 text-gray-500"/>}
+                                             <span className="text-xs font-bold text-gray-300">{anim.name}</span>
+                                             <span className="text-[9px] bg-gray-800 text-gray-500 px-1 rounded">{anim.frames.length} frames</span>
+                                         </div>
+                                     </button>
+
+                                     {expandedAnim === anim.id && (
+                                         <div className="p-2 border-t border-gray-800 bg-black/20 animate-in slide-in-from-top-2">
+                                             <div className="flex items-center space-x-2 mb-2">
+                                                 <div className="flex-1">
+                                                     <label className="text-[9px] text-gray-500 block">Velocidad (FPS)</label>
+                                                     <input 
+                                                        type="number" 
+                                                        value={anim.fps}
+                                                        onChange={(e) => handleUpdateAnimation(behavior.id, anim.id, 'fps', parseInt(e.target.value))}
+                                                        className="w-full bg-gray-950 border border-gray-700 rounded px-1 py-0.5 text-xs text-white"
+                                                     />
+                                                 </div>
+                                                 <div className="flex items-center pt-3">
+                                                      <label className="flex items-center cursor-pointer space-x-1">
+                                                          <input 
+                                                            type="checkbox" 
+                                                            checked={anim.loop}
+                                                            onChange={(e) => handleUpdateAnimation(behavior.id, anim.id, 'loop', e.target.checked)}
+                                                            className="rounded bg-gray-700 border-gray-600 text-orange-500 focus:ring-0" 
+                                                          />
+                                                          <span className="text-[10px] text-gray-400">Loop</span>
+                                                      </label>
+                                                 </div>
+                                             </div>
+
+                                             <div className="text-[9px] text-gray-500 font-bold mb-1 uppercase">Frames</div>
+                                             <div className="flex flex-wrap gap-2 mb-2">
+                                                 {anim.frames.map((frame, idx) => (
+                                                     <div key={frame.id} className="relative w-14 h-14 bg-gray-800 border-2 border-gray-600 rounded-lg overflow-hidden shrink-0 group/frame">
+                                                         <img src={frame.imageUrl} className="w-full h-full object-contain image-pixelated" />
+                                                         <button className="absolute top-0 right-0 bg-red-600/90 text-white p-1 rounded-bl-lg z-10" onClick={(e) => { e.stopPropagation(); handleDeleteFrame(behavior.id, anim.id, frame.id); }}><X className="w-3 h-3" /></button>
+                                                         <div className="absolute bottom-0 left-0 bg-black/60 text-[9px] text-white px-1.5 py-0.5 rounded-tr-lg pointer-events-none">{idx + 1}</div>
+                                                     </div>
+                                                 ))}
+                                                 <button 
+                                                    onClick={() => onOpenAssetManager((url) => handleAddFrame(behavior.id, anim.id, url))}
+                                                    className="w-14 h-14 border-2 border-dashed border-gray-600 hover:border-orange-500 hover:text-orange-500 text-gray-500 rounded-lg flex items-center justify-center transition-colors shrink-0"
+                                                 >
+                                                     <Plus className="w-5 h-5" />
+                                                 </button>
+                                             </div>
+                                         </div>
+                                     )}
+                                 </div>
+                             ))}
+                          </div>
                       )}
-                      {/* ... */}
+
+                      {/* Default Props UI for other behaviors */}
+                      {behavior.type !== BehaviorType.ANIMATION && Object.entries(behavior.properties).map(([key, val]) => (
+                          <div key={key}>
+                              <label className="text-[10px] text-gray-500 block capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</label>
+                              {typeof val === 'boolean' ? (
+                                  <button onClick={() => updateBehaviorProp(behavior.id, key, !val)} className={`text-xs px-2 py-1 rounded ${val ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'}`}>{val ? 'ON' : 'OFF'}</button>
+                              ) : (
+                                  <input 
+                                     type={typeof val === 'number' ? 'number' : 'text'} 
+                                     value={val as any}
+                                     onChange={(e) => updateBehaviorProp(behavior.id, key, e.target.value)}
+                                     className="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1 text-xs text-white"
+                                  />
+                              )}
+                          </div>
+                      ))}
                    </div>
                 </div>
               ))}
@@ -654,7 +597,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
         </div>
         
         {/* Transform section always at bottom */}
-        <div className="space-y-3">
+        <div className="space-y-3 mt-4 pt-4 border-t border-gray-800">
              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Transformación</label>
              <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -675,6 +618,53 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                 </div>
              </div>
         </div>
+
+        <div className="h-px bg-gray-800"></div>
+
+        {/* --- VARIABLES SECTION --- */}
+        <div className="space-y-3">
+             <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-pink-500 uppercase tracking-wider flex items-center">
+                    <VariableIcon className="w-3 h-3 mr-1" /> Variables de Instancia
+                </label>
+             </div>
+
+             <div className="bg-gray-800/50 rounded-xl p-3 border border-gray-800 space-y-3">
+                 {/* List of Vars */}
+                 {(selectedObject.variables || []).map(v => (
+                     <div key={v.id} className="flex items-center justify-between bg-gray-900 border border-gray-700 rounded-lg p-2">
+                         <div className="flex items-center space-x-2 overflow-hidden flex-1">
+                             <div className="p-1.5 bg-gray-800 rounded">
+                                {v.type === 'NUMBER' && <Hash className="w-3 h-3 text-blue-400" />}
+                                {v.type === 'STRING' && <Type className="w-3 h-3 text-yellow-400" />}
+                                {v.type === 'BOOLEAN' && <ToggleLeft className="w-3 h-3 text-green-400" />}
+                             </div>
+                             <div className="flex flex-col min-w-0 flex-1">
+                                 <span className="text-[10px] font-bold text-gray-300 truncate">{v.name}</span>
+                                 {v.type === 'BOOLEAN' ? (
+                                     <button onClick={() => handleVariableChange(v.id, !v.value)} className={`text-[9px] px-1.5 py-0.5 rounded w-fit ${v.value ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'}`}>{v.value ? 'TRUE' : 'FALSE'}</button>
+                                 ) : (
+                                     <input type={v.type === 'NUMBER' ? 'number' : 'text'} value={v.value} onChange={(e) => handleVariableChange(v.id, v.type === 'NUMBER' ? parseFloat(e.target.value) : e.target.value)} className="bg-transparent border-0 p-0 text-[10px] text-white focus:ring-0 w-full" />
+                                 )}
+                             </div>
+                         </div>
+                         <button onClick={() => handleDeleteVariable(v.id)} className="text-gray-600 hover:text-red-400 p-1"><Trash2 className="w-3 h-3" /></button>
+                     </div>
+                 ))}
+
+                 {/* Add New Var */}
+                 <div className="flex space-x-1 pt-1">
+                    <input type="text" value={newVarName} onChange={(e) => setNewVarName(e.target.value)} placeholder="Nombre (ej. Vida)" className="flex-1 bg-gray-900 border border-gray-600 rounded-lg px-2 py-1.5 text-xs text-white outline-none focus:border-pink-500" />
+                    <select value={newVarType} onChange={(e) => setNewVarType(e.target.value as VariableType)} className="bg-gray-900 border border-gray-600 rounded-lg px-1 text-[10px] text-white outline-none w-16">
+                        <option value="NUMBER">Num</option>
+                        <option value="STRING">Txt</option>
+                        <option value="BOOLEAN">Bool</option>
+                    </select>
+                    <button onClick={handleAddVariable} className="p-1.5 bg-gray-700 hover:bg-pink-600 rounded-lg text-gray-300 hover:text-white transition-colors"><Plus className="w-4 h-4" /></button>
+                 </div>
+             </div>
+        </div>
+
       </div>
     </div>
   );

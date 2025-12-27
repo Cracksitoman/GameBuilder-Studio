@@ -1,22 +1,14 @@
+
 import React, { useState } from 'react';
 import { GameEvent, GameObject, ConditionType, ActionType, EventCondition, EventAction, ObjectType, Scene } from '../types';
-import { Plus, Trash2, ArrowRight, X, Workflow, Box, User, Ghost, Type, MousePointer2, Menu, ChevronLeft, Edit } from './Icons';
+import { Plus, Trash2, ArrowRight, X, Workflow, Box, User, Ghost, Type, MousePointer2, Menu, ChevronLeft, Edit, Hand, Move, Timer, Ruler, Wind, Copy, MessageSquare, Vibrate, Navigation, Film, Settings } from './Icons';
 import { EventActionModal } from './EventActionModal';
 
 interface EventSheetProps {
   objects: GameObject[];
   onUpdateObject: (id: string, updates: Partial<GameObject>) => void;
-  scenes?: Scene[]; // Optional, might be passed from App but not strictly needed for this file's internal logic unless we pass it to Modal
+  scenes?: Scene[]; 
 }
-
-// NOTE: App.tsx doesn't pass scenes to EventSheet yet in the previous refactor step. 
-// We need to update App.tsx to pass 'scenes' to EventSheet, OR we access scenes via a context or similar.
-// For now, let's update EventSheet to accept scenes prop, and assume App passes it (I will update App.tsx content block above or rely on React state flow).
-// Wait, I already updated App.tsx but didn't pass 'scenes' to EventSheet in the XML above.
-// Actually, since I can't edit the previous XML block once generated, I will fix it here by making scenes optional
-// and providing a mechanism. *Correction*: I will just use the objects for now.
-// For CHANGE_SCENE to work, EventActionModal needs the list of scenes.
-// Since EventSheet is a child of App, I can assume I will update App.tsx to pass scenes.
 
 export const EventSheet: React.FC<EventSheetProps & { scenes?: Scene[] }> = ({ objects, onUpdateObject, scenes = [] }) => {
   const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
@@ -27,7 +19,7 @@ export const EventSheet: React.FC<EventSheetProps & { scenes?: Scene[] }> = ({ o
   const [modalMode, setModalMode] = useState<'CONDITION' | 'ACTION'>('CONDITION');
   const [activeEventId, setActiveEventId] = useState<string | null>(null);
   // For editing
-  const [editingItemId, setEditingItemId] = useState<string | null>(null); // Condition or Action ID
+  const [editingItemId, setEditingItemId] = useState<string | null>(null); 
   const [editingItemType, setEditingItemType] = useState<string | null>(null);
   const [editingItemParams, setEditingItemParams] = useState<Record<string, any>>({});
 
@@ -60,7 +52,7 @@ export const EventSheet: React.FC<EventSheetProps & { scenes?: Scene[] }> = ({ o
 
   const openAddCondition = (eventId: string) => {
       setActiveEventId(eventId);
-      setEditingItemId(null); // Adding new
+      setEditingItemId(null); 
       setEditingItemType(null);
       setEditingItemParams({});
       setModalMode('CONDITION');
@@ -69,7 +61,7 @@ export const EventSheet: React.FC<EventSheetProps & { scenes?: Scene[] }> = ({ o
 
   const openAddAction = (eventId: string) => {
       setActiveEventId(eventId);
-      setEditingItemId(null); // Adding new
+      setEditingItemId(null); 
       setEditingItemType(null);
       setEditingItemParams({});
       setModalMode('ACTION');
@@ -168,6 +160,7 @@ export const EventSheet: React.FC<EventSheetProps & { scenes?: Scene[] }> = ({ o
       if (!id) return '???';
       if (id === 'SELF') return 'Este Objeto';
       if (id === 'OTHER') return 'El Otro Objeto';
+      if (id === 'POINTER') return 'Puntero';
       const obj = objects.find(o => o.id === id);
       return obj ? obj.name : 'Desconocido';
   };
@@ -287,12 +280,42 @@ export const EventSheet: React.FC<EventSheetProps & { scenes?: Scene[] }> = ({ o
                                               onClick={() => openEditCondition(event.id, cond)}
                                               className="flex items-center justify-between bg-gray-800 border-l-4 border-green-500 rounded p-3 text-sm relative group/item hover:bg-gray-750 cursor-pointer transition-colors"
                                             >
-                                                <div className="flex-1">
+                                                <div className="flex-1 flex items-center space-x-2">
+                                                    {cond.type === 'TOUCH_INTERACTION' && (
+                                                        <>
+                                                           <Hand className="w-4 h-4 text-yellow-400 mr-1" />
+                                                           <span className="text-gray-300">
+                                                              {cond.parameters.subtype === 'CLICK' && 'Al Tocar / Hacer Clic'}
+                                                              {cond.parameters.subtype === 'DRAG' && 'Al Arrastrar'}
+                                                              {cond.parameters.subtype === 'HOVER' && 'Al Pasar Encima'}
+                                                              {cond.parameters.subtype === 'DOUBLE_CLICK' && 'Doble Clic'}
+                                                              {cond.parameters.subtype === 'LONG_PRESS' && `Mantener pulsado (${cond.parameters.duration}s)`}
+                                                           </span>
+                                                        </>
+                                                    )}
+                                                    {cond.type === 'EVERY_X_SECONDS' && (
+                                                        <>
+                                                            <Timer className="w-4 h-4 text-purple-400 mr-1" />
+                                                            <span className="text-gray-300">Cada <b className="text-purple-300">{cond.parameters.interval}s</b></span>
+                                                        </>
+                                                    )}
+                                                    {cond.type === 'DISTANCE_TO' && (
+                                                        <>
+                                                            <Ruler className="w-4 h-4 text-cyan-400 mr-1" />
+                                                            <span className="text-gray-300">Dist. a <b className="text-cyan-300">{getTargetName(cond.parameters.targetId)}</b> {cond.parameters.operator === 'LESS' ? '<' : '>'} {cond.parameters.distance}</span>
+                                                        </>
+                                                    )}
                                                     {cond.type === 'START_OF_SCENE' && <span className="font-bold text-gray-200">Inicio de Escena</span>}
                                                     {cond.type === 'COLLISION' && (
                                                         <span className="text-gray-300">
                                                             Choca con <b className="text-green-300">{getTargetName(cond.parameters.targetId)}</b>
                                                         </span>
+                                                    )}
+                                                    {cond.type === 'IS_MOVING' && (
+                                                        <>
+                                                            <Wind className="w-4 h-4 text-orange-400 mr-1" />
+                                                            <span className="text-gray-300">Está en movimiento</span>
+                                                        </>
                                                     )}
                                                     {cond.type === 'KEY_PRESSED' && (
                                                         <span className="text-gray-300">
@@ -301,7 +324,7 @@ export const EventSheet: React.FC<EventSheetProps & { scenes?: Scene[] }> = ({ o
                                                     )}
                                                     {cond.type === 'COMPARE_VARIABLE' && (
                                                         <span className="text-gray-300">
-                                                            Var <b className="text-pink-300">{cond.parameters.varId}</b> ({cond.parameters.source}) {cond.parameters.operator} <b>{cond.parameters.value}</b>
+                                                            Var <b className="text-pink-300">{cond.parameters.varId}</b> {cond.parameters.operator} <b>{cond.parameters.value}</b>
                                                         </span>
                                                     )}
                                                 </div>
@@ -339,12 +362,54 @@ export const EventSheet: React.FC<EventSheetProps & { scenes?: Scene[] }> = ({ o
                                               onClick={() => openEditAction(event.id, act)}
                                               className="flex items-center justify-between bg-gray-800 border-l-4 border-blue-500 rounded p-3 text-sm relative group/item hover:bg-gray-750 cursor-pointer transition-colors"
                                             >
-                                                <div className="flex-1">
+                                                <div className="flex-1 flex items-center space-x-2">
+                                                    {act.type === 'MOVE_TO_POINTER' && (
+                                                        <>
+                                                            <Move className="w-4 h-4 text-indigo-400 mr-1" />
+                                                            <span className="text-gray-300">Seguir puntero</span>
+                                                        </>
+                                                    )}
+                                                    {act.type === 'CREATE_OBJECT' && (
+                                                        <>
+                                                            <Copy className="w-4 h-4 text-green-400 mr-1" />
+                                                            <span className="text-gray-300">Crear copia de <b className="text-green-300">{getTargetName(act.parameters.sourceObjectId)}</b></span>
+                                                        </>
+                                                    )}
+                                                    {act.type === 'SET_TEXT' && (
+                                                        <>
+                                                            <MessageSquare className="w-4 h-4 text-yellow-400 mr-1" />
+                                                            <span className="text-gray-300">Texto: "{act.parameters.text}"</span>
+                                                        </>
+                                                    )}
+                                                     {act.type === 'CAMERA_SHAKE' && (
+                                                        <>
+                                                            <Vibrate className="w-4 h-4 text-orange-400 mr-1" />
+                                                            <span className="text-gray-300">Agitar Cámara ({act.parameters.intensity}, {act.parameters.duration}s)</span>
+                                                        </>
+                                                    )}
+                                                     {act.type === 'ROTATE_TOWARD' && (
+                                                        <>
+                                                            <Navigation className="w-4 h-4 text-purple-400 mr-1" />
+                                                            <span className="text-gray-300">Rotar hacia <b className="text-purple-300">{getTargetName(act.parameters.targetId)}</b></span>
+                                                        </>
+                                                    )}
+                                                    {act.type === 'PLAY_ANIMATION' && (
+                                                        <>
+                                                            <Film className="w-4 h-4 text-pink-400 mr-1" />
+                                                            <span className="text-gray-300">Animación: {act.parameters.animName}</span>
+                                                        </>
+                                                    )}
+                                                     {act.type === 'APPLY_FORCE' && (
+                                                        <>
+                                                            <Wind className="w-4 h-4 text-blue-400 mr-1" />
+                                                            <span className="text-gray-300">Fuerza ({act.parameters.forceX}, {act.parameters.forceY})</span>
+                                                        </>
+                                                    )}
                                                     {act.type === 'RESTART_SCENE' && <span className="font-bold text-red-300">Reiniciar Escena</span>}
                                                     {act.type === 'CHANGE_SCENE' && <span className="font-bold text-orange-300">Ir a Escena: {scenes.find(s=>s.id === act.parameters.sceneId)?.name || '...'}</span>}
                                                     {act.type === 'DESTROY' && (
                                                         <span className="text-gray-300">
-                                                            Destruir: <b className="text-blue-300">{act.parameters.target === 'SELF' ? 'Este objeto' : 'El otro'}</b>
+                                                            Destruir: <b className="text-blue-300">{act.parameters.target === 'OTHER' ? 'El Otro Objeto' : 'Este Objeto'}</b>
                                                         </span>
                                                     )}
                                                     {act.type === 'SET_VISIBLE' && (
@@ -354,7 +419,7 @@ export const EventSheet: React.FC<EventSheetProps & { scenes?: Scene[] }> = ({ o
                                                     )}
                                                     {act.type === 'MODIFY_VARIABLE' && (
                                                         <span className="text-gray-300">
-                                                            {act.parameters.operation} Var <b className="text-pink-300">{act.parameters.varId}</b> ({act.parameters.source}) con <b>{act.parameters.value}</b>
+                                                            {act.parameters.operation} Var <b className="text-pink-300">{act.parameters.varId}</b> ({act.parameters.source})
                                                         </span>
                                                     )}
                                                 </div>
@@ -414,7 +479,7 @@ export const EventSheet: React.FC<EventSheetProps & { scenes?: Scene[] }> = ({ o
         isOpen={modalOpen}
         mode={modalMode}
         objects={objects}
-        scenes={scenes} // PASSED scenes
+        scenes={scenes}
         initialType={editingItemType}
         initialParams={editingItemParams}
         onClose={() => setModalOpen(false)}

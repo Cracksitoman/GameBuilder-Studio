@@ -72,8 +72,29 @@ import {
   Clapperboard,
   Grid,
   Video,
-  // Add Home icon
-  Home
+  Home,
+  CheckSquare,
+  Square,
+  MousePointerClick,
+  Timer,
+  Ruler,
+  Wind,
+  Copy,
+  Vibrate,
+  Navigation,
+  MessageSquare,
+  Code,
+  Terminal,
+  AlertTriangle,
+  Book,
+  Sidebar,
+  ArrowLeft,
+  Volume2,    // NEW
+  Sun,        // NEW
+  Maximize2,  // NEW
+  Droplets,   // NEW (Particles)
+  MoveHorizontal, // NEW
+  Music // NEW
 } from 'lucide-react';
 
 export {
@@ -149,6 +170,27 @@ export {
   Clapperboard,
   Grid,
   Video,
-  // Export Home icon
-  Home
+  Home,
+  CheckSquare,
+  Square,
+  MousePointerClick,
+  Timer,
+  Ruler,
+  Wind,
+  Copy,
+  Vibrate,
+  Navigation,
+  MessageSquare,
+  Code,
+  Terminal,
+  AlertTriangle,
+  Book,
+  Sidebar,
+  ArrowLeft,
+  Volume2,
+  Sun,
+  Maximize2,
+  Droplets,
+  MoveHorizontal,
+  Music
 };

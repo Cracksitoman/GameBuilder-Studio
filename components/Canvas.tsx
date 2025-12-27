@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { GameObject, ObjectType, EditorTool, CanvasConfig, Layer, Asset } from '../types';
-import { ZoomIn, ZoomOut, ArrowRight, ArrowDown, Video, MonitorSmartphone } from './Icons';
+import { ZoomIn, ZoomOut, ArrowRight, ArrowDown, Video, MonitorSmartphone, Grid3x3, Magnet } from './Icons';
 
 interface CanvasProps {
   objects: GameObject[];
@@ -13,6 +14,13 @@ interface CanvasProps {
   assets?: Asset[]; 
   canvasConfig: CanvasConfig;
   cameraConfig?: { targetObjectId: string | null }; // NEW: Camera visualizer
+  
+  // Grid Props
+  showGrid: boolean;
+  gridSize: number;
+  onToggleGrid: (show: boolean) => void;
+  onSetGridSize: (size: number) => void;
+
   onSelectObject: (id: string | null) => void;
   onUpdateObject: (id: string, updates: Partial<GameObject>) => void;
   onEditObject: (obj: GameObject) => void;
@@ -31,12 +39,17 @@ export const Canvas: React.FC<CanvasProps> = ({
   activeLayerId,
   canvasConfig,
   cameraConfig,
+  showGrid,
+  gridSize,
+  onToggleGrid,
+  onSetGridSize,
   onSelectObject,
   onUpdateObject,
   onEditObject
 }) => {
   const [zoom, setZoom] = useState(0.8);
   const [viewPos, setViewPos] = useState({ x: 0, y: 0 });
+  const [isGridMenuOpen, setIsGridMenuOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Update zoom automatically to fit when orientation changes
@@ -149,22 +162,25 @@ export const Canvas: React.FC<CanvasProps> = ({
       const scaledDeltaY = deltaY / zoom;
       const updates: Partial<GameObject> = {};
 
+      // Helper for snapping
+      const snap = (val: number) => showGrid ? Math.round(val / gridSize) * gridSize : val;
+
       switch (effectiveMode) {
         case 'MOVE_ALL':
-          updates.x = initialObjectState.x + scaledDeltaX;
-          updates.y = initialObjectState.y + scaledDeltaY;
+          updates.x = snap(initialObjectState.x + scaledDeltaX);
+          updates.y = snap(initialObjectState.y + scaledDeltaY);
           break;
         case 'MOVE_X':
-          updates.x = initialObjectState.x + scaledDeltaX;
+          updates.x = snap(initialObjectState.x + scaledDeltaX);
           break;
         case 'MOVE_Y':
-          updates.y = initialObjectState.y + scaledDeltaY;
+          updates.y = snap(initialObjectState.y + scaledDeltaY);
           break;
         case 'RESIZE_X':
-          updates.width = Math.max(10, initialObjectState.width + scaledDeltaX);
+          updates.width = Math.max(10, snap(initialObjectState.width + scaledDeltaX));
           break;
         case 'RESIZE_Y':
-          updates.height = Math.max(10, initialObjectState.height + scaledDeltaY);
+          updates.height = Math.max(10, snap(initialObjectState.height + scaledDeltaY));
           break;
       }
 
@@ -367,17 +383,59 @@ export const Canvas: React.FC<CanvasProps> = ({
   return (
     <div className="absolute inset-0 bg-gray-950 overflow-hidden flex flex-col z-0">
       
-      {/* Zoom Controls */}
-      <div className="absolute top-4 right-4 z-20 bg-gray-800/80 backdrop-blur rounded-lg border border-gray-700 flex flex-col shadow-lg">
-        <button onClick={() => setZoom(z => Math.min(3, z + 0.1))} className="p-3 hover:bg-gray-700/50 rounded-t-lg text-gray-300 hover:text-white border-b border-gray-700">
-          <ZoomIn className="w-5 h-5" />
-        </button>
-        <button onClick={() => setZoom(z => Math.max(0.2, z - 0.1))} className="p-3 hover:bg-gray-700/50 rounded-b-lg text-gray-300 hover:text-white">
-          <ZoomOut className="w-5 h-5" />
-        </button>
+      {/* Zoom & View Controls */}
+      <div className="absolute top-4 right-4 z-20 flex flex-col space-y-2">
+          
+          {/* Grid Toggle Group */}
+          <div className="bg-gray-800/80 backdrop-blur rounded-lg border border-gray-700 shadow-lg relative">
+              <button 
+                onClick={() => setIsGridMenuOpen(!isGridMenuOpen)}
+                className={`p-3 rounded-lg hover:text-white transition-colors flex items-center justify-center ${showGrid ? 'text-blue-400 bg-blue-900/20' : 'text-gray-300 hover:bg-gray-700/50'}`}
+                title="Configurar Cuadrícula"
+              >
+                  {showGrid ? <Magnet className="w-5 h-5" /> : <Grid3x3 className="w-5 h-5" />}
+              </button>
+
+              {/* Popover Menu for Grid */}
+              {isGridMenuOpen && (
+                  <div className="absolute right-full top-0 mr-2 bg-gray-800 border border-gray-700 rounded-lg shadow-xl p-2 w-32 animate-in fade-in slide-in-from-right-2">
+                      <div className="text-[10px] text-gray-500 uppercase font-bold mb-2 px-1">Ajuste / Grid</div>
+                      
+                      <button 
+                        onClick={() => onToggleGrid(!showGrid)}
+                        className={`w-full text-left px-2 py-1.5 rounded text-xs mb-2 flex items-center justify-between ${showGrid ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300'}`}
+                      >
+                          <span>{showGrid ? 'Activado' : 'Desactivado'}</span>
+                      </button>
+
+                      {showGrid && (
+                          <div className="space-y-1">
+                              {[16, 32, 64].map(s => (
+                                  <button
+                                    key={s}
+                                    onClick={() => onSetGridSize(s)}
+                                    className={`w-full text-left px-2 py-1 rounded text-xs hover:bg-gray-700 ${gridSize === s ? 'text-blue-400 font-bold' : 'text-gray-400'}`}
+                                  >
+                                      {s}x{s} px
+                                  </button>
+                              ))}
+                          </div>
+                      )}
+                  </div>
+              )}
+          </div>
+
+          <div className="bg-gray-800/80 backdrop-blur rounded-lg border border-gray-700 flex flex-col shadow-lg">
+            <button onClick={() => setZoom(z => Math.min(3, z + 0.1))} className="p-3 hover:bg-gray-700/50 rounded-t-lg text-gray-300 hover:text-white border-b border-gray-700">
+            <ZoomIn className="w-5 h-5" />
+            </button>
+            <button onClick={() => setZoom(z => Math.max(0.2, z - 0.1))} className="p-3 hover:bg-gray-700/50 rounded-b-lg text-gray-300 hover:text-white">
+            <ZoomOut className="w-5 h-5" />
+            </button>
+          </div>
       </div>
 
-      <div className="absolute top-4 right-16 z-20 pointer-events-none mt-2">
+      <div className="absolute top-4 right-16 z-20 pointer-events-none mt-20">
           <span className="bg-black/50 text-white text-[10px] px-2 py-1 rounded-full backdrop-blur">
              {Math.round(zoom * 100)}%
           </span>
@@ -395,6 +453,7 @@ export const Canvas: React.FC<CanvasProps> = ({
         }}
         onPointerDown={(e) => {
             if (e.target === e.currentTarget) {
+               setIsGridMenuOpen(false); // Close menu on click elsewhere
                if (currentTool === EditorTool.HAND || e.button === 1) {
                  startDrag(e, null, 'PAN_CANVAS');
                } else {
@@ -428,6 +487,21 @@ export const Canvas: React.FC<CanvasProps> = ({
               <div className="absolute inset-0 pointer-events-none opacity-20" 
                   style={{backgroundImage: 'linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)', backgroundSize: '50px 50px'}}>
               </div>
+
+              {/* VISUAL GRID OVERLAY */}
+              {showGrid && (
+                  <div 
+                    className="absolute inset-0 pointer-events-none z-0"
+                    style={{
+                        opacity: 0.15,
+                        backgroundImage: `
+                            linear-gradient(to right, white 1px, transparent 1px),
+                            linear-gradient(to bottom, white 1px, transparent 1px)
+                        `,
+                        backgroundSize: `${gridSize}px ${gridSize}px`
+                    }}
+                  />
+              )}
 
               {/* RENDER OBJECTS BY LAYER ORDER */}
               {layers.map(layer => {

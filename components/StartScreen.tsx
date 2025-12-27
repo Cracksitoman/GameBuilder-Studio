@@ -1,6 +1,6 @@
 
 import React, { useRef } from 'react';
-import { Rocket, FileUp, Sparkles, Cpu, MonitorSmartphone, Plus } from './Icons';
+import { Rocket, FileUp, Sparkles, Plus, Book } from './Icons';
 
 const KodaLogoBig = ({ className = "w-32 h-32" }) => (
   <svg viewBox="0 0 100 100" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -23,9 +23,10 @@ const KodaLogoBig = ({ className = "w-32 h-32" }) => (
 interface StartScreenProps {
   onNewProject: () => void;
   onLoadProject: (file: File) => void;
+  onOpenDocs: () => void;
 }
 
-export const StartScreen: React.FC<StartScreenProps> = ({ onNewProject, onLoadProject }) => {
+export const StartScreen: React.FC<StartScreenProps> = ({ onNewProject, onLoadProject, onOpenDocs }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -83,6 +84,15 @@ export const StartScreen: React.FC<StartScreenProps> = ({ onNewProject, onLoadPr
                  <FileUp className="w-6 h-6 mr-2 text-gray-400" />
                  Cargar Proyecto
               </button>
+              
+              <button 
+                onClick={onOpenDocs}
+                className="px-4 py-4 bg-gray-900 hover:bg-gray-800 border border-gray-800 hover:border-gray-600 rounded-2xl font-bold text-lg text-gray-400 hover:text-white transition-all transform hover:scale-105 active:scale-95 flex items-center justify-center"
+                title="Documentación"
+              >
+                 <Book className="w-6 h-6" />
+              </button>
+
               <input 
                 type="file" 
                 ref={fileInputRef} 
@@ -93,7 +103,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({ onNewProject, onLoadPr
            </div>
         </div>
 
-        <div className="relative animate-in slide-in-from-right-10 duration-700 fade-in delay-100">
+        <div className="relative animate-in slide-in-from-right-10 duration-700 fade-in delay-100 hidden lg:block">
            <div className="absolute -top-10 -right-10 w-64 h-64 bg-orange-500/10 rounded-full blur-3xl"></div>
            
            <div className="bg-gray-900/60 backdrop-blur-xl border border-gray-800 rounded-3xl p-6 shadow-2xl relative overflow-hidden">
@@ -108,13 +118,13 @@ export const StartScreen: React.FC<StartScreenProps> = ({ onNewProject, onLoadPr
                   <div className="p-4 bg-gray-800/50 rounded-xl border border-gray-700/50">
                       <span className="text-sm font-bold text-orange-300">Bienvenido a Koda</span>
                       <p className="text-xs text-gray-400 mt-1">
-                         Hemos renombrado el estudio para reflejar nuestra nueva potencia. Koda Engine es más rápido y estable.
+                         Ahora con editor de scripts en tiempo real. ¡Programa tus juegos directamente!
                       </p>
                   </div>
                   <div className="p-4 bg-gray-800/50 rounded-xl border border-gray-700/50">
-                      <span className="text-sm font-bold text-green-300">Modo Cámara Mejorado</span>
+                      <span className="text-sm font-bold text-green-300">Documentación Integrada</span>
                       <p className="text-xs text-gray-400 mt-1">
-                         Ahora los bordes de la cámara son negros para mejor visibilidad en el modo edición.
+                         Aprende a usar la API con ejemplos de código.
                       </p>
                   </div>
                </div>
