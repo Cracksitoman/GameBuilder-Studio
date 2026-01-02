@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { GameEvent, GameObject, ConditionType, ActionType, EventCondition, EventAction, ObjectType, Scene } from '../types';
+import { GameEvent, GameObject, ConditionType, ActionType, EventCondition, EventAction, ObjectType, Scene, Variable } from '../types';
 import { Plus, Trash2, ArrowRight, X, Workflow, Box, User, Ghost, Type, MousePointer2, Menu, ChevronLeft, Edit, Hand, Move, Timer, Ruler, Wind, Copy, MessageSquare, Vibrate, Navigation, Film, Settings } from './Icons';
 import { EventActionModal } from './EventActionModal';
 
@@ -8,9 +8,11 @@ interface EventSheetProps {
   objects: GameObject[];
   onUpdateObject: (id: string, updates: Partial<GameObject>) => void;
   scenes?: Scene[]; 
+  library?: GameObject[];
+  globalVariables?: Variable[]; // NEW PROP
 }
 
-export const EventSheet: React.FC<EventSheetProps & { scenes?: Scene[] }> = ({ objects, onUpdateObject, scenes = [] }) => {
+export const EventSheet: React.FC<EventSheetProps> = ({ objects, onUpdateObject, scenes = [], library = [], globalVariables = [] }) => {
   const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
@@ -39,7 +41,9 @@ export const EventSheet: React.FC<EventSheetProps & { scenes?: Scene[] }> = ({ o
 
   const handleRemoveEvent = (eventId: string) => {
       if (!selectedObject) return;
-      onUpdateObject(selectedObject.id, { events: selectedObject.events.filter(e => e.id !== eventId) });
+      if (confirm("¿Estás seguro de que quieres eliminar este bloque de eventos?")) {
+          onUpdateObject(selectedObject.id, { events: selectedObject.events.filter(e => e.id !== eventId) });
+      }
   };
 
   const updateEvent = (eventId: string, updates: Partial<GameEvent>) => {
@@ -132,17 +136,21 @@ export const EventSheet: React.FC<EventSheetProps & { scenes?: Scene[] }> = ({ o
 
   const removeCondition = (eventId: string, condId: string) => {
       if (!selectedObject) return;
-      const event = selectedObject.events.find(e => e.id === eventId);
-      if (event) {
-          updateEvent(eventId, { conditions: event.conditions.filter(c => c.id !== condId) });
+      if (confirm("¿Eliminar condición?")) {
+          const event = selectedObject.events.find(e => e.id === eventId);
+          if (event) {
+              updateEvent(eventId, { conditions: event.conditions.filter(c => c.id !== condId) });
+          }
       }
   };
 
   const removeAction = (eventId: string, actId: string) => {
       if (!selectedObject) return;
-      const event = selectedObject.events.find(e => e.id === eventId);
-      if (event) {
-          updateEvent(eventId, { actions: event.actions.filter(a => a.id !== actId) });
+      if (confirm("¿Eliminar acción?")) {
+          const event = selectedObject.events.find(e => e.id === eventId);
+          if (event) {
+              updateEvent(eventId, { actions: event.actions.filter(a => a.id !== actId) });
+          }
       }
   };
 
@@ -161,7 +169,7 @@ export const EventSheet: React.FC<EventSheetProps & { scenes?: Scene[] }> = ({ o
       if (id === 'SELF') return 'Este Objeto';
       if (id === 'OTHER') return 'El Otro Objeto';
       if (id === 'POINTER') return 'Puntero';
-      const obj = objects.find(o => o.id === id);
+      const obj = objects.find(o => o.id === id) || library.find(o => o.id === id);
       return obj ? obj.name : 'Desconocido';
   };
 
@@ -372,7 +380,9 @@ export const EventSheet: React.FC<EventSheetProps & { scenes?: Scene[] }> = ({ o
                                                     {act.type === 'CREATE_OBJECT' && (
                                                         <>
                                                             <Copy className="w-4 h-4 text-green-400 mr-1" />
-                                                            <span className="text-gray-300">Crear copia de <b className="text-green-300">{getTargetName(act.parameters.sourceObjectId)}</b></span>
+                                                            <span className="text-gray-300">
+                                                              Crear <b className="text-green-300">{getTargetName(act.parameters.sourceObjectId)}</b> desde {act.parameters.spawnOrigin === 'OTHER' ? 'el otro' : (act.parameters.spawnOrigin && act.parameters.spawnOrigin !== 'SELF' ? 'objeto' : 'sí mismo')}
+                                                            </span>
                                                         </>
                                                     )}
                                                     {act.type === 'SET_TEXT' && (
@@ -484,6 +494,8 @@ export const EventSheet: React.FC<EventSheetProps & { scenes?: Scene[] }> = ({ o
         initialParams={editingItemParams}
         onClose={() => setModalOpen(false)}
         onSave={handleModalSave}
+        library={library}
+        globalVariables={globalVariables} // Pass Global Vars
       />
     </div>
   );

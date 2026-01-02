@@ -1,7 +1,7 @@
 
 import React, { useState, useRef } from 'react';
 import { ObjectType, GameObject } from '../types';
-import { Plus, Box, Type, User, Ghost, Trash2, X, Grid, Folder, FolderPlus, FolderOpen, ChevronRight, ChevronDown, MoreHorizontal, Hand } from './Icons';
+import { Plus, Box, Type, User, Ghost, Trash2, X, Grid, Folder, FolderPlus, FolderOpen, ChevronRight, ChevronDown, MoreHorizontal, Hand, MonitorSmartphone } from './Icons';
 
 interface ObjectLibraryProps {
   objects: GameObject[];
@@ -53,6 +53,7 @@ export const ObjectLibrary: React.FC<ObjectLibraryProps> = ({
       case ObjectType.PLAYER: return <User className="w-4 h-4 text-green-400" />;
       case ObjectType.ENEMY: return <Ghost className="w-4 h-4 text-red-400" />;
       case ObjectType.TILEMAP: return <Grid className="w-4 h-4 text-cyan-400" />;
+      case ObjectType.UI_BUTTON: return <MonitorSmartphone className="w-4 h-4 text-orange-400" />;
       default: return <Box className="w-4 h-4 text-blue-400" />;
     }
   };
@@ -158,8 +159,8 @@ export const ObjectLibrary: React.FC<ObjectLibraryProps> = ({
           <button onClick={() => onAddObject(ObjectType.SPRITE)} className="flex flex-col items-center justify-center p-2 bg-gray-800 hover:bg-gray-700 rounded-lg border border-gray-700 active:border-blue-500 transition-all group">
             <Box className="w-5 h-5 text-blue-400 mb-1" /><span className="text-[9px] text-gray-400">Bloque</span>
           </button>
-          <button onClick={() => onAddObject(ObjectType.TILEMAP)} className="flex flex-col items-center justify-center p-2 bg-gray-800 hover:bg-gray-700 rounded-lg border border-gray-700 active:border-cyan-500 transition-all group">
-            <Grid className="w-5 h-5 text-cyan-400 mb-1" /><span className="text-[9px] text-gray-400">Tilemap</span>
+          <button onClick={() => onAddObject(ObjectType.UI_BUTTON)} className="flex flex-col items-center justify-center p-2 bg-gray-800 hover:bg-gray-700 rounded-lg border border-gray-700 active:border-orange-500 transition-all group">
+            <MonitorSmartphone className="w-5 h-5 text-orange-400 mb-1" /><span className="text-[9px] text-gray-400">Botón UI</span>
           </button>
           <button onClick={() => onAddObject(ObjectType.TEXT)} className="flex flex-col items-center justify-center p-2 bg-gray-800 hover:bg-gray-700 rounded-lg border border-gray-700 active:border-yellow-500 transition-all group">
             <Type className="w-5 h-5 text-yellow-400 mb-1" /><span className="text-[9px] text-gray-400">Texto</span>
@@ -243,7 +244,10 @@ export const ObjectLibrary: React.FC<ObjectLibraryProps> = ({
                                             <MoreHorizontal className="w-3 h-3" />
                                         </button>
                                         <button
-                                            onPointerDown={(e) => { e.stopPropagation(); onDeleteObject(obj.id); }}
+                                            onPointerDown={(e) => { 
+                                                e.stopPropagation(); 
+                                                if (confirm("¿Borrar este objeto de la librería?")) onDeleteObject(obj.id); 
+                                            }}
                                             className="p-1 rounded hover:bg-red-900/50 text-gray-500 hover:text-red-400 transition-colors"
                                         >
                                             <Trash2 className="w-3 h-3" />

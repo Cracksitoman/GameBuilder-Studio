@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Scene } from '../types';
 import { X, Clapperboard, Plus, Trash2, Check, Edit, Play } from './Icons';

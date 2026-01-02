@@ -4,7 +4,8 @@ export enum ObjectType {
   TEXT = 'TEXT',
   PLAYER = 'PLAYER',
   ENEMY = 'ENEMY',
-  TILEMAP = 'TILEMAP'
+  TILEMAP = 'TILEMAP',
+  UI_BUTTON = 'UI_BUTTON' // NEW
 }
 
 export enum EditorTool {
@@ -22,7 +23,9 @@ export enum BehaviorType {
   FOLLOW = 'FOLLOW',
   ROTATE = 'ROTATE',
   SINE_MOVEMENT = 'SINE',
-  ANIMATION = 'ANIMATION'
+  ANIMATION = 'ANIMATION',
+  HEALTH = 'HEALTH',
+  TILT_CONTROL = 'TILT_CONTROL' // NEW: Comportamiento de giroscopio dedicado
 }
 
 export interface Asset {
@@ -86,24 +89,35 @@ export type ActionType =
   | 'RESTART_SCENE' 
   | 'CHANGE_SCENE' 
   | 'SET_VISIBLE' 
-  | 'MODIFY_VARIABLE'
-  | 'MOVE_TO_POINTER'
-  | 'CREATE_OBJECT'
-  | 'SET_TEXT'
-  | 'CAMERA_SHAKE'
-  | 'ROTATE_TOWARD'
-  | 'APPLY_FORCE'
-  | 'PLAY_ANIMATION'
-  | 'TOGGLE_BEHAVIOR'
-  | 'SPAWN_PARTICLES'
-  | 'PLAY_SOUND'
-  | 'SET_VELOCITY'
-  | 'STOP_MOVEMENT'
-  | 'SET_COLOR'
-  | 'SET_OPACITY'
-  | 'SET_SIZE'
-  | 'FLASH_EFFECT'
-  | 'SET_CAMERA_ZOOM';
+  | 'MODIFY_VARIABLE' 
+  | 'MOVE_TO_POINTER' 
+  | 'CREATE_OBJECT' 
+  | 'SET_TEXT' 
+  | 'CAMERA_SHAKE' 
+  | 'ROTATE_TOWARD' 
+  | 'APPLY_FORCE' 
+  | 'PLAY_ANIMATION' 
+  | 'TOGGLE_BEHAVIOR' 
+  | 'SPAWN_PARTICLES' 
+  | 'PLAY_SOUND' 
+  | 'SET_VELOCITY' 
+  | 'STOP_MOVEMENT' 
+  | 'SET_COLOR' 
+  | 'SET_OPACITY' 
+  | 'SET_SIZE' 
+  | 'FLASH_EFFECT' 
+  | 'SET_CAMERA_ZOOM' 
+  | 'DAMAGE_OBJECT' 
+  | 'HEAL_OBJECT'
+  // NEW MOTION BLOCKS
+  | 'MOVE_FORWARD'
+  | 'SET_X'
+  | 'SET_Y'
+  | 'CHANGE_X'
+  | 'CHANGE_Y'
+  | 'SET_ROTATION'
+  | 'CHANGE_ROTATION'
+  | 'POINT_TOWARDS_POINT';
 
 export interface EventCondition {
   id: string;
@@ -140,9 +154,16 @@ export interface TilemapData {
   tiles: Record<string, TileData | string>; 
 }
 
+export interface SpawnPoint {
+    id: string;
+    name: string;
+    x: number; 
+    y: number;
+}
+
 export interface GameObject {
   id: string;
-  prototypeId?: string; // NEW: Links instance to library object
+  prototypeId?: string; 
   name: string;
   type: ObjectType;
   x: number;
@@ -153,18 +174,19 @@ export interface GameObject {
   color: string;
   zIndex: number; 
   layerId: string;
-  group?: string; // Group/Folder Name
+  group?: string; 
   visible: boolean;
   opacity: number;
   previewSpriteUrl?: string;
   isObstacle: boolean;
-  isGui?: boolean;
+  isGui?: boolean; // Controls if it is UI fixed to screen
   behaviors: Behavior[]; 
   events: GameEvent[]; 
   variables: Variable[];
   textBinding?: TextBinding;
   tilemap?: TilemapData;
   script?: string;
+  points?: SpawnPoint[]; 
 }
 
 export interface CameraConfig {
@@ -191,9 +213,11 @@ export interface Scene {
   name: string;
   objects: GameObject[];
   layers: Layer[];
-  groups?: string[]; // Defined Groups in Scene
+  groups?: string[]; 
   backgroundColor: string;
   camera?: CameraConfig;
+  width?: number; // World Width
+  height?: number; // World Height
 }
 
 export interface CanvasConfig {

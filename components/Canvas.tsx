@@ -1,9 +1,10 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { GameObject, ObjectType, EditorTool, CanvasConfig, Layer, Asset } from '../types';
+import { GameObject, ObjectType, EditorTool, CanvasConfig, Layer, Asset, Scene } from '../types';
 import { ZoomIn, ZoomOut, ArrowRight, ArrowDown, Video, MonitorSmartphone, Grid3x3, Magnet } from './Icons';
 
 interface CanvasProps {
+  scene: Scene; // Use full scene object instead of just objects
   objects: GameObject[];
   layers: Layer[];
   selectedObjectId: string | null;
@@ -31,6 +32,7 @@ interface CanvasProps {
 type DragMode = 'NONE' | 'MOVE_ALL' | 'MOVE_X' | 'MOVE_Y' | 'RESIZE_X' | 'RESIZE_Y' | 'PAN_CANVAS';
 
 export const Canvas: React.FC<CanvasProps> = ({
+  scene,
   objects,
   layers,
   selectedObjectId,
@@ -54,6 +56,10 @@ export const Canvas: React.FC<CanvasProps> = ({
   const [isGridMenuOpen, setIsGridMenuOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const gameBoxRef = useRef<HTMLDivElement>(null); 
+
+  // Determine World Size (fallbacks to canvas config if scene not set)
+  const worldWidth = scene.width || canvasConfig.width;
+  const worldHeight = scene.height || canvasConfig.height;
 
   // Update zoom automatically to fit when orientation changes
   useEffect(() => {
@@ -458,18 +464,29 @@ export const Canvas: React.FC<CanvasProps> = ({
           <div 
              id="koda-stage-area" // GLOBAL ID FOR DRAG CALCULATION
              ref={gameBoxRef}
-             className="absolute bg-black shadow-2xl"
+             className="absolute shadow-2xl"
              style={{ 
                  left: 0, 
                  top: 0, 
-                 width: `${canvasConfig.width}px`, 
-                 height: `${canvasConfig.height}px`,
-                 // World bounds should always be visible (no opacity dimming)
-                 border: '1px dashed #374151'
+                 width: `${worldWidth}px`, // USE WORLD WIDTH
+                 height: `${worldHeight}px`, // USE WORLD HEIGHT
+                 backgroundColor: scene.backgroundColor || '#000000',
+                 border: '1px solid #4b5563'
              }}
           >
               <div className="absolute inset-0 pointer-events-none opacity-20" 
                   style={{backgroundImage: 'linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)', backgroundSize: '50px 50px'}}>
+              </div>
+
+              {/* VIEWPORT OVERLAY (Show Camera Size) */}
+              <div 
+                className="absolute top-0 left-0 border-2 border-dashed border-cyan-500/50 pointer-events-none z-10"
+                style={{
+                    width: `${canvasConfig.width}px`,
+                    height: `${canvasConfig.height}px`
+                }}
+              >
+                  <div className="absolute top-2 left-2 bg-cyan-900/80 text-cyan-200 text-[10px] px-2 py-1 rounded">Cámara Inicial</div>
               </div>
 
               {/* VISUAL GRID OVERLAY */}
@@ -498,11 +515,11 @@ export const Canvas: React.FC<CanvasProps> = ({
               })}
               
               <div className="absolute -top-6 left-0 text-gray-500 text-[10px] font-mono whitespace-nowrap scale-[1] origin-bottom-left" style={{ transform: `scale(${1/zoom})` }}>
-                ORIGEN (0,0)
+                MUNDO ({worldWidth}x{worldHeight})
               </div>
           </div>
           
-          {/* CAMERA FRAME OVERLAY (Only shows if target is set) */}
+          {/* CAMERA FRAME OVERLAY (Dynamic Tracking) */}
           {cameraConfig?.targetObjectId && (
               <div 
                 className="absolute pointer-events-none z-[60]"

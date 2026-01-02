@@ -4,7 +4,7 @@ import {
   MousePointer2,
   Move,
   Type,
-  Image as ImageIcon,
+  ImageIcon,
   Play,
   Save,
   Settings,
@@ -95,11 +95,16 @@ import {
   Droplets,
   MoveHorizontal,
   Music,
-  Undo, // NEW
-  Redo, // NEW
-  Folder, // NEW
-  FolderPlus, // NEW
-  FolderOpen // NEW
+  Undo,
+  Redo,
+  Folder,
+  FolderPlus,
+  FolderOpen,
+  Scissors,
+  Puzzle, 
+  RefreshCw,
+  MapPin,
+  Map // NEW
 } from 'lucide-react';
 
 export {
@@ -202,5 +207,10 @@ export {
   Redo,
   Folder,
   FolderPlus,
-  FolderOpen
+  FolderOpen,
+  Scissors,
+  Puzzle,
+  RefreshCw,
+  MapPin,
+  Map
 };

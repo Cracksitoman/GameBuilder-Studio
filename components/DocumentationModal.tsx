@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { X, Book, Code, Box, Wind, MonitorSmartphone, Layers, Hash } from './Icons';
 
@@ -87,28 +88,26 @@ me.rotation += 5;
               <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
                 <h2 className="text-3xl font-black text-white mb-4">Movimiento y Física</h2>
                 <p className="text-gray-400">
-                  Para lograr un movimiento suave en todos los dispositivos, siempre multiplica tus valores por <code>dt</code> (Delta Time).
+                  Para lograr un movimiento suave, usa <code>dt</code> (Delta Time) o los métodos helper.
                 </p>
 
-                <h3 className="text-xl font-bold text-white mt-6">Movimiento Simple</h3>
+                <h3 className="text-xl font-bold text-white mt-6">Métodos de Dirección</h3>
+                <p className="text-sm text-gray-400">Mueve el objeto basándote en su ángulo.</p>
                 <CodeBlock code={`
-// Mover 200 píxeles por segundo a la derecha
-me.x += 200 * dt;
+// Mover 200px/s en la dirección que mira (0° es Arriba)
+me.move(200 * dt);
 
-// Mover en diagonal
-me.x += 100 * dt;
-me.y += 100 * dt;
+// Mirar hacia un punto (ej. centro de pantalla)
+me.pointTowards(400, 225);
                 `} />
 
-                <h3 className="text-xl font-bold text-white mt-6">Usando Velocidad (Física)</h3>
-                <p className="text-sm text-gray-400 mb-2">
-                  Si tu objeto tiene comportamientos de física, usa <code>me.vx</code> y <code>me.vy</code>.
-                </p>
+                <h3 className="text-xl font-bold text-white mt-6">Métodos Manuales</h3>
                 <CodeBlock code={`
-// Saltar (Velocidad negativa en Y es hacia arriba)
-if (inputs.action) {
-    me.vy = -500;
-}
+// Mover 5px a la derecha
+me.x += 5;
+
+// Rotar 10 grados
+me.rotation += 10;
                 `} />
               </div>
             )}
@@ -117,17 +116,17 @@ if (inputs.action) {
               <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
                 <h2 className="text-3xl font-black text-white mb-4">Entrada del Jugador</h2>
                 <p className="text-gray-400">
-                  El objeto <code>inputs</code> contiene el estado actual de los controles (teclado y táctil).
+                  El objeto <code>inputs</code> contiene el estado actual de los controles.
                 </p>
 
                 <div className="grid grid-cols-2 gap-4 my-6">
                    <div className="bg-gray-800 p-4 rounded-xl border border-gray-700">
                       <code className="text-green-400 font-bold">inputs.left</code>
-                      <p className="text-xs text-gray-500 mt-1">Flecha Izquierda / D-Pad</p>
+                      <p className="text-xs text-gray-500 mt-1">Flecha Izquierda</p>
                    </div>
                    <div className="bg-gray-800 p-4 rounded-xl border border-gray-700">
                       <code className="text-green-400 font-bold">inputs.right</code>
-                      <p className="text-xs text-gray-500 mt-1">Flecha Derecha / D-Pad</p>
+                      <p className="text-xs text-gray-500 mt-1">Flecha Derecha</p>
                    </div>
                    <div className="bg-gray-800 p-4 rounded-xl border border-gray-700">
                       <code className="text-green-400 font-bold">inputs.up</code>
@@ -135,29 +134,9 @@ if (inputs.action) {
                    </div>
                    <div className="bg-gray-800 p-4 rounded-xl border border-gray-700">
                       <code className="text-green-400 font-bold">inputs.action</code>
-                      <p className="text-xs text-gray-500 mt-1">Espacio / Botón A</p>
+                      <p className="text-xs text-gray-500 mt-1">Espacio / A</p>
                    </div>
                 </div>
-
-                <h3 className="text-xl font-bold text-white">Ejemplo: Control Top-Down</h3>
-                <CodeBlock code={`
-const speed = 300;
-
-if (inputs.left) {
-    me.x -= speed * dt;
-    me.flipX = true; // Voltear sprite
-}
-if (inputs.right) {
-    me.x += speed * dt;
-    me.flipX = false;
-}
-if (inputs.up) {
-    me.y -= speed * dt;
-}
-if (inputs.down) {
-    me.y += speed * dt;
-}
-                `} />
               </div>
             )}
 
@@ -165,30 +144,13 @@ if (inputs.down) {
               <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
                 <h2 className="text-3xl font-black text-white mb-4">Variables</h2>
                 
-                <h3 className="text-xl font-bold text-white">Variables Globales</h3>
-                <p className="text-gray-400 text-sm mb-2">Accesibles desde cualquier objeto usando <code>globals</code>.</p>
+                <h3 className="text-xl font-bold text-white">Globales vs Locales</h3>
                 <CodeBlock code={`
-// Aumentar puntuación
+// Global (todo el juego)
 globals.Puntos += 10;
 
-// Verificar vida
-if (globals.Vida <= 0) {
-    log("Game Over");
-}
-                `} />
-
-                <h3 className="text-xl font-bold text-white mt-6">Variables Locales</h3>
-                <p className="text-gray-400 text-sm mb-2">
-                  Variables propias del objeto. Debes crearlas primero en el panel de Propiedades.
-                  Se accede a ellas a través de <code>me.localVars</code>.
-                </p>
-                <CodeBlock code={`
-// Reducir salud del enemigo
-me.localVars.Salud -= 10;
-
-if (me.localVars.Salud <= 0) {
-    me.destroy();
-}
+// Local (este objeto)
+me.localVars.Vida -= 10;
                 `} />
               </div>
             )}
@@ -199,20 +161,20 @@ if (me.localVars.Salud <= 0) {
                 
                 <div className="space-y-4">
                     <div className="bg-gray-800 p-4 rounded-xl border border-gray-700">
-                        <code className="text-yellow-400 font-bold text-lg">me.destroy()</code>
+                        <code className="text-yellow-400 font-bold">me.move(pasos)</code>
+                        <p className="text-gray-400 text-sm mt-1">Mueve el objeto hacia adelante según su rotación (0° = Arriba).</p>
+                    </div>
+                    <div className="bg-gray-800 p-4 rounded-xl border border-gray-700">
+                        <code className="text-yellow-400 font-bold">me.pointTowards(x, y)</code>
+                        <p className="text-gray-400 text-sm mt-1">Rota el objeto para mirar hacia las coordenadas dadas.</p>
+                    </div>
+                    <div className="bg-gray-800 p-4 rounded-xl border border-gray-700">
+                        <code className="text-yellow-400 font-bold">me.distanceTo(objetivo)</code>
+                        <p className="text-gray-400 text-sm mt-1">Devuelve la distancia en píxeles hacia otro objeto (ej. {`{x: 100, y: 100}`}).</p>
+                    </div>
+                    <div className="bg-gray-800 p-4 rounded-xl border border-gray-700">
+                        <code className="text-yellow-400 font-bold">me.destroy()</code>
                         <p className="text-gray-400 text-sm mt-1">Elimina el objeto del juego inmediatamente.</p>
-                    </div>
-                    <div className="bg-gray-800 p-4 rounded-xl border border-gray-700">
-                        <code className="text-yellow-400 font-bold text-lg">me.visible</code>
-                        <p className="text-gray-400 text-sm mt-1">Booleano (true/false). Controla si el objeto se dibuja.</p>
-                    </div>
-                    <div className="bg-gray-800 p-4 rounded-xl border border-gray-700">
-                        <code className="text-yellow-400 font-bold text-lg">log(mensaje)</code>
-                        <p className="text-gray-400 text-sm mt-1">Imprime un mensaje en la consola del navegador (F12) para depuración.</p>
-                    </div>
-                    <div className="bg-gray-800 p-4 rounded-xl border border-gray-700">
-                        <code className="text-yellow-400 font-bold text-lg">Math.random()</code>
-                        <p className="text-gray-400 text-sm mt-1">Función estándar de JS. Devuelve un número entre 0 y 1.</p>
                     </div>
                 </div>
               </div>

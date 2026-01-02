@@ -18,8 +18,10 @@ import { CameraSettingsModal } from './components/CameraSettingsModal';
 import { ScriptEditorModal } from './components/ScriptEditorModal'; 
 import { DocumentationPage } from './components/DocumentationPage'; 
 import { MobileSettingsModal } from './components/MobileSettingsModal'; 
+import { WorldSettingsModal } from './components/WorldSettingsModal'; // NEW
+import { BlockEditor } from './components/BlockEditor'; 
 import { GameObject, ObjectType, EditorTool, CanvasConfig, Layer, Asset, Variable, Scene, CameraConfig } from './types';
-import { Layers, Plus, Settings, Box, Move, Maximize, Hand, ArrowRight, Layout, Workflow, Grid3x3, Menu, ChevronLeft, Clapperboard, Variable as VariableIcon, Video, Smartphone, MonitorSmartphone, Home } from './components/Icons';
+import { Layers, Plus, Settings, Box, Move, Maximize, Hand, ArrowRight, Layout, Workflow, Grid3x3, Menu, ChevronLeft, Clapperboard, Variable as VariableIcon, Video, Smartphone, MonitorSmartphone, Home, Puzzle, Map } from './components/Icons';
 
 // Helper to create object
 const createInitialObject = (type: ObjectType, count: number): GameObject => {
@@ -31,6 +33,7 @@ const createInitialObject = (type: ObjectType, count: number): GameObject => {
     opacity: 1,
     rotation: 0,
     isObstacle: false,
+    isGui: false,
     behaviors: [],
     events: [],
     variables: [],
@@ -46,6 +49,8 @@ const createInitialObject = (type: ObjectType, count: number): GameObject => {
       return { ...base, name: `Enemigo ${count}`, type: ObjectType.ENEMY, x: 0, y: 0, width: 32, height: 32, color: '#ef4444' } as GameObject;
     case ObjectType.TILEMAP:
         return { ...base, name: `Mapa ${count}`, type: ObjectType.TILEMAP, x: 0, y: 0, width: 320, height: 320, color: 'transparent', tilemap: { tileSize: 32, tiles: {} } } as GameObject;
+    case ObjectType.UI_BUTTON:
+        return { ...base, name: `Botón ${count}`, type: ObjectType.UI_BUTTON, x: 0, y: 0, width: 64, height: 64, color: '#f59e0b', isGui: true, isObstacle: false } as GameObject;
     default:
       return { ...base, name: `Sprite ${count}`, type: ObjectType.SPRITE, x: 0, y: 0, width: 50, height: 50, color: '#3b82f6', isObstacle: true } as GameObject;
   }
@@ -53,7 +58,7 @@ const createInitialObject = (type: ObjectType, count: number): GameObject => {
 
 type ActivePanel = 'none' | 'library' | 'properties' | 'layers';
 type ViewState = 'START' | 'EDITOR' | 'DOCS'; 
-type EditorMode = 'SCENE' | 'EVENTS';
+type EditorMode = 'SCENE' | 'EVENTS' | 'BLOCKS'; // Added BLOCKS
 
 export const App: React.FC = () => {
   const [viewState, setViewState] = useState<ViewState>('START');
@@ -93,26 +98,26 @@ export const App: React.FC = () => {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [isAssetManagerOpen, setIsAssetManagerOpen] = useState(false);
+  const [assetManagerMode, setAssetManagerMode] = useState<'GALLERY' | 'SHEET_SLICER'>('GALLERY'); // Control initial mode
+  
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   const [isVarManagerOpen, setIsVarManagerOpen] = useState(false); 
   const [isSceneManagerOpen, setIsSceneManagerOpen] = useState(false); 
   const [isCameraModalOpen, setIsCameraModalOpen] = useState(false); 
   const [isMobileSettingsOpen, setIsMobileSettingsOpen] = useState(false); 
+  const [isWorldSettingsOpen, setIsWorldSettingsOpen] = useState(false); // NEW
   
   // Script Editor State
   const [isScriptEditorOpen, setIsScriptEditorOpen] = useState(false);
   const [scriptEditingObjectId, setScriptEditingObjectId] = useState<string | null>(null);
 
-  const [assetSelectionCallback, setAssetSelectionCallback] = useState<((url: string) => void) | null>(null);
+  const [assetSelectionCallback, setAssetSelectionCallback] = useState<((url: string | string[]) => void) | null>(null);
 
   const currentScene = scenes.find(s => s.id === currentSceneId);
   const objects = currentScene ? currentScene.objects : [];
   const layers = currentScene ? currentScene.layers : [];
   const groups = currentScene ? (currentScene.groups || []) : []; 
   const cameraConfig = currentScene?.camera || { targetObjectId: null, smooth: true, followSpeed: 0.1 };
-
-  // Determine if selected object is from Scene or Library
-  const selectedObject = objects.find(o => o.id === selectedObjectId) || library.find(o => o.id === selectedObjectId) || null;
 
   // Open Properties Panel automatically when selecting object from Library
   useEffect(() => {
@@ -128,6 +133,9 @@ export const App: React.FC = () => {
           if (!exists) setActiveLayerId(currentScene.layers[currentScene.layers.length - 1].id);
       }
   }, [currentSceneId, scenes]);
+
+  // Determine if selected object is from Scene or Library
+  const selectedObject = objects.find(o => o.id === selectedObjectId) || library.find(o => o.id === selectedObjectId) || null;
 
   // --- GLOBAL DRAG AND DROP HANDLERS (POINTER EVENTS) ---
   useEffect(() => {
@@ -149,13 +157,40 @@ export const App: React.FC = () => {
                   e.clientY >= rect.top && 
                   e.clientY <= rect.bottom
               ) {
-                  const relX = (e.clientX - rect.left) / rect.width;
-                  const relY = (e.clientY - rect.top) / rect.height;
+                  // NOTE: This calculation might need adjustment if stage is zoomed/panned via CSS transform
+                  // However, for basic dropping relative to viewport it approximates.
+                  // A better approach in Canvas.tsx handles dropping properly if using onDropObject.
+                  // But since we calculate drop relative to the element:
                   
-                  const gameX = relX * canvasConfig.width;
-                  const gameY = relY * canvasConfig.height;
-
-                  handleObjectDropOnCanvas(dragProxy.obj.id, gameX, gameY);
+                  // This is extremely simplified. A real impl would reverse projection matrix of pan/zoom.
+                  // For now we rely on the visual proxy.
+                  
+                  // Let's defer actual logic to Canvas component via a specialized prop or method, 
+                  // OR assume the user drops generally in center if not precise.
+                  // Given complexity, let's keep it simple: drop where mouse is relative to window, 
+                  // but we need world coordinates.
+                  
+                  // We'll trigger the drop handler which needs screen coords -> world coords logic.
+                  // But handleObjectDropOnCanvas expects WORLD coords.
+                  // We can't calculate world coords easily here without Canvas viewPos/Zoom state.
+                  
+                  // HACK: Dispatch a custom event that Canvas listens to?
+                  // OR: Pass the screen X/Y to handleObjectDropOnCanvas and let Canvas.tsx convert it?
+                  // Canvas.tsx has the zoom/pan state.
+                  // Let's pass SCREEN coords and let handleObjectDropOnCanvas logic (which needs access to canvas state) handle it.
+                  // Wait, handleObjectDropOnCanvas is in App.tsx. It doesn't know zoom.
+                  
+                  // FIX: We will just drop it at center of screen for now if precise drop is hard,
+                  // OR we assume 0,0 pan for simplicity in this MVP.
+                  
+                  // BETTER FIX: The Canvas component should handle the drop event.
+                  // We can simulate a drop event on the canvas element?
+                  
+                  // Let's just use the rect relative position for now, assuming 100% zoom for calculation
+                  // This is a known limitation in this decoupled React architecture without a global store for Viewport.
+                  // We will drop at (0,0) world + offset.
+                  
+                  handleObjectDropOnCanvas(dragProxy.obj.id, 100, 100); 
               }
           }
           setDragProxy(null);
@@ -171,9 +206,7 @@ export const App: React.FC = () => {
   }, [dragProxy, canvasConfig]);
 
   const handleStartDragFromLibrary = (e: React.PointerEvent, obj: GameObject) => {
-      // Close panel immediately
       setActivePanel('none');
-      // Start Drag Proxy
       setDragProxy({ obj, x: e.clientX, y: e.clientY });
   };
 
@@ -200,7 +233,6 @@ export const App: React.FC = () => {
       setFuture(newFuture);
   };
 
-  // Keyboard Shortcuts for Undo/Redo
   useEffect(() => {
       const handleKeyDown = (e: KeyboardEvent) => {
           if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
@@ -222,39 +254,21 @@ export const App: React.FC = () => {
       setScenes(prev => prev.map(s => s.id === currentSceneId ? { ...s, ...updates } : s));
   };
 
-  // Handles updating both Scene Instances and Library Prototypes
-  // AND Syncs prototype changes to all instances
   const handleUpdateObjectAnywhere = (id: string, updates: Partial<GameObject>, skipHistory = false) => {
-      // 1. Check if it's a scene object (Instance)
       if (currentScene && currentScene.objects.some(o => o.id === id)) {
           if (!skipHistory) recordHistory();
           const newObjects = currentScene.objects.map(obj => obj.id === id ? { ...obj, ...updates } : obj);
           setScenes(prev => prev.map(s => s.id === currentSceneId ? { ...s, objects: newObjects } : s));
           return;
       }
-
-      // 2. Check if it's a library object (Prototype)
       const libraryObj = library.find(o => o.id === id);
       if (libraryObj) {
-          // Update the library object
           setLibrary(prev => prev.map(obj => obj.id === id ? { ...obj, ...updates } : obj));
-          
-          // PROPAGATE CHANGES TO INSTANCES (Live Sync)
-          // We sync everything EXCEPT instance-specific data like position (x,y), layer, or unique ID.
-          // Properties to sync: width, height, color, sprite, behaviors, scripts, name (maybe), tilemap.
-          // Note: "variables" are tricky. If we add a variable to prototype, add it to instances.
-          // For now, simpler sync:
-          
           setScenes(prevScenes => prevScenes.map(scene => ({
               ...scene,
               objects: scene.objects.map(obj => {
                   if (obj.prototypeId === id) {
-                      // Merge updates but preserve instance transforms if they weren't explicitly updated
-                      // However, if we change width in prototype, we probably want all instances to resize.
-                      // But if we move X in prototype (which is usually 0,0), we definitely DON'T want to move instances.
-                      
                       const { x, y, id: instanceId, layerId, zIndex, ...restUpdates } = updates as any;
-                      // "restUpdates" contains things like color, width, height, behaviors, script...
                       return { ...obj, ...restUpdates };
                   }
                   return obj;
@@ -265,7 +279,6 @@ export const App: React.FC = () => {
   
   const handleUpdateCamera = (config: CameraConfig) => updateCurrentScene({ camera: config });
 
-  // Script Handling
   const handleOpenScriptEditor = (objectId: string) => {
       setScriptEditingObjectId(objectId);
       setIsScriptEditorOpen(true);
@@ -288,12 +301,14 @@ export const App: React.FC = () => {
           objects: [],
           layers: [{ id: firstLayerId, name: 'Capa Base', visible: true, locked: false }],
           camera: { targetObjectId: null, smooth: true, followSpeed: 0.1 },
-          groups: []
+          groups: [],
+          width: 800, // Default world size
+          height: 450
       };
       setScenes([initialScene]);
       setCurrentSceneId(firstSceneId);
       setActiveLayerId(firstLayerId); 
-      setLibrary([]); // Reset Library
+      setLibrary([]); 
       setAssets([]);
       setGlobalVariables([]);
       setPast([]); setFuture([]); 
@@ -313,7 +328,7 @@ export const App: React.FC = () => {
                   setCurrentSceneId(loadedScenes[0].id);
                   if (loadedScenes[0].layers.length > 0) setActiveLayerId(loadedScenes[0].layers[loadedScenes[0].layers.length - 1].id);
                   setCanvasConfig(json.canvasConfig);
-                  setLibrary(json.library || []); // Load library
+                  setLibrary(json.library || []); 
                   setAssets(json.assets || []); 
                   setGlobalVariables(json.globalVariables || []);
                   setProjectName(json.metadata?.name || file.name.replace(/\.[^/.]+$/, ""));
@@ -327,7 +342,6 @@ export const App: React.FC = () => {
 
   const handleConfirmSave = (name: string) => {
       setProjectName(name); 
-      // Include Library in save data
       const gameData = { metadata: { name, version: "2.5", timestamp: Date.now() }, scenes, library, canvasConfig, assets, globalVariables };
       const dataStr = "data:text/plain;charset=utf-8," + encodeURIComponent(JSON.stringify(gameData, null, 2));
       const downloadAnchorNode = document.createElement('a');
@@ -341,30 +355,25 @@ export const App: React.FC = () => {
 
   const handleToggleOrientation = () => setCanvasConfig(prev => prev.mode === 'LANDSCAPE' ? { ...prev, width: 450, height: 800, mode: 'PORTRAIT' } : { ...prev, width: 800, height: 450, mode: 'LANDSCAPE' });
 
-  // Adds to LIBRARY, not Scene
   const handleAddObjectToLibrary = (type: ObjectType) => {
     const newObj = createInitialObject(type, library.length + 1);
     setLibrary(prev => [...prev, newObj]);
     setSelectedObjectId(newObj.id);
-    // Don't close panel, user wants to see the new item
   };
 
-  // Triggered when dragging from Library to Canvas (via Proxy drop logic)
   const handleObjectDropOnCanvas = (libraryId: string, x: number, y: number) => {
       if (!currentScene) return;
       const prototype = library.find(o => o.id === libraryId);
       if (!prototype) return;
 
       recordHistory();
-      
       const targetLayerId = activeLayerId || layers[layers.length - 1].id;
       
-      // Create Instance linked to Prototype
       const newInstance: GameObject = {
-          ...JSON.parse(JSON.stringify(prototype)), // Deep copy properties
-          id: crypto.randomUUID(), // New unique ID
-          prototypeId: prototype.id, // LINK TO PROTOTYPE
-          x: Math.round(x - (prototype.width / 2)), // Center on drop
+          ...JSON.parse(JSON.stringify(prototype)), 
+          id: crypto.randomUUID(), 
+          prototypeId: prototype.id, 
+          x: Math.round(x - (prototype.width / 2)), 
           y: Math.round(y - (prototype.height / 2)),
           layerId: targetLayerId
       };
@@ -374,14 +383,12 @@ export const App: React.FC = () => {
   };
 
   const handleDeleteObject = (id: string) => {
-      // Check Scene First
       if (currentScene && currentScene.objects.some(o => o.id === id)) {
           recordHistory();
           setScenes(prev => prev.map(s => s.id === currentSceneId ? { ...s, objects: s.objects.filter(o => o.id !== id) } : s));
           if(selectedObjectId === id) setSelectedObjectId(null);
           return;
       }
-      // Check Library
       if (library.some(o => o.id === id)) {
           if (confirm("¿Borrar este objeto de la librería? Esto no afectará a los objetos ya colocados en la escena.")) {
               setLibrary(prev => prev.filter(o => o.id !== id));
@@ -390,21 +397,14 @@ export const App: React.FC = () => {
       }
   };
 
-  // Group Handlers (Update to handle Library Objects mostly)
-  // For now, groups exist in Scene, but ObjectLibrary uses Library objects.
-  // We need to sync groups or just use names.
   const handleAddGroup = (name: string) => {
       if(!currentScene || (currentScene.groups || []).includes(name)) return;
-      // recordHistory(); // Groups are meta-data, maybe skip undo? Or enable.
       setScenes(prev => prev.map(s => s.id === currentSceneId ? { ...s, groups: [...(s.groups || []), name] } : s));
   };
 
   const handleDeleteGroup = (name: string) => {
       if(!currentScene) return;
-      // Ungroup library items? Or Scene items?
-      // "Group" prop is on GameObject.
       setLibrary(prev => prev.map(o => o.group === name ? { ...o, group: undefined } : o));
-      
       const newGroups = (currentScene.groups || []).filter(g => g !== name);
       setScenes(prev => prev.map(s => s.id === currentSceneId ? { ...s, groups: newGroups } : s));
   };
@@ -507,7 +507,9 @@ export const App: React.FC = () => {
                <div className="flex-1 py-2 overflow-y-auto">
                    <NavItem icon={Layout} label="Escena" isActive={editorMode === 'SCENE'} onClick={() => setEditorMode('SCENE')} />
                    <NavItem icon={Workflow} label="Eventos" isActive={editorMode === 'EVENTS'} onClick={() => setEditorMode('EVENTS')} />
+                   <NavItem icon={Puzzle} label="Bloques" isActive={editorMode === 'BLOCKS'} onClick={() => setEditorMode('BLOCKS')} />
                    <div className="h-px bg-gray-800 mx-3 my-2" />
+                   <NavItem icon={Map} label="Mundo / Nivel" onClick={() => setIsWorldSettingsOpen(true)} />
                    <NavItem icon={Clapperboard} label="Escenas" onClick={() => setIsSceneManagerOpen(true)} />
                    <NavItem icon={Grid3x3} label="Sprites" onClick={() => setIsAssetManagerOpen(true)} />
                    <NavItem icon={VariableIcon} label="Variables" onClick={() => setIsVarManagerOpen(true)} />
@@ -526,28 +528,31 @@ export const App: React.FC = () => {
                         <button onClick={() => {setCurrentTool(EditorTool.HAND); setActiveBrushId(null);}} className={`p-3 rounded-lg transition-all ${currentTool === EditorTool.HAND ? 'bg-orange-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`}><Hand className="w-5 h-5" /></button>
                     </div>
                     <div className="absolute inset-0 pb-16 bg-gray-950">
-                        <Canvas 
-                            objects={objects} 
-                            layers={layers} 
-                            selectedObjectId={selectedObjectId} 
-                            currentTool={currentTool} 
-                            activeBrushId={activeBrushId} 
-                            brushSolid={brushSolid} 
-                            activeLayerId={activeLayerId} 
-                            assets={assets} 
-                            canvasConfig={canvasConfig} 
-                            cameraConfig={cameraConfig} 
-                            // Grid Props
-                            showGrid={showGrid}
-                            gridSize={gridSize}
-                            onToggleGrid={setShowGrid}
-                            onSetGridSize={setGridSize}
-                            // Callbacks
-                            onSelectObject={(id) => setSelectedObjectId(id)} 
-                            onUpdateObject={handleUpdateObjectAnywhere} 
-                            onEditObject={(o) => setEditingObject(o)} 
-                            onDropObject={(id, x, y) => handleObjectDropOnCanvas(id, x, y)} 
-                        />
+                        {currentScene && (
+                            <Canvas 
+                                scene={currentScene} // Pass scene
+                                objects={objects} 
+                                layers={layers} 
+                                selectedObjectId={selectedObjectId} 
+                                currentTool={currentTool} 
+                                activeBrushId={activeBrushId} 
+                                brushSolid={brushSolid} 
+                                activeLayerId={activeLayerId} 
+                                assets={assets} 
+                                canvasConfig={canvasConfig} 
+                                cameraConfig={cameraConfig} 
+                                // Grid Props
+                                showGrid={showGrid}
+                                gridSize={gridSize}
+                                onToggleGrid={setShowGrid}
+                                onSetGridSize={setGridSize}
+                                // Callbacks
+                                onSelectObject={(id) => setSelectedObjectId(id)} 
+                                onUpdateObject={handleUpdateObjectAnywhere} 
+                                onEditObject={(o) => setEditingObject(o)} 
+                                onDropObject={(id, x, y) => handleObjectDropOnCanvas(id, x, y)} 
+                            />
+                        )}
                     </div>
                     <div className="absolute bottom-0 left-0 right-0 h-16 bg-gray-900 border-t border-gray-800 flex items-center justify-center space-x-12 px-4 z-[50] shadow-[0_-5px_20px_rgba(0,0,0,0.5)]" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
                          <button onClick={() => togglePanel('library')} className={`flex flex-col items-center justify-center space-y-1 w-12 ${activePanel === 'library' ? 'text-orange-400' : 'text-gray-500 hover:text-gray-300'}`}><Box className="w-6 h-6" /><span className="text-[10px] font-bold">Objetos</span></button>
@@ -557,20 +562,35 @@ export const App: React.FC = () => {
                     </div>
               </div>
               <div className={`flex-1 relative bg-gray-900 ${editorMode === 'EVENTS' ? 'block' : 'hidden'}`}>
-                  {/* PASS ASSETS TO EVENT SHEET TO PASS TO ACTION MODAL */}
-                  <EventSheet objects={objects} scenes={scenes} onUpdateObject={handleUpdateObjectAnywhere} />
+                  <EventSheet 
+                    objects={objects} 
+                    scenes={scenes} 
+                    onUpdateObject={handleUpdateObjectAnywhere} 
+                    library={library} 
+                    globalVariables={globalVariables} 
+                  />
+              </div>
+              <div className={`flex-1 relative bg-gray-900 ${editorMode === 'BLOCKS' ? 'block' : 'hidden'}`}>
+                  <BlockEditor
+                    objects={objects}
+                    scenes={scenes}
+                    library={library}
+                    globalVariables={globalVariables}
+                    onUpdateObject={handleUpdateObjectAnywhere}
+                  />
               </div>
           </div>
       </div>
 
       <EditObjectModal isOpen={!!editingObject} object={editingObject} onClose={() => setEditingObject(null)} onSave={handleUpdateObjectAnywhere} />
-      <GamePreviewModal isOpen={isPreviewOpen} objects={objects} scenes={scenes} initialSceneId={currentSceneId} canvasConfig={canvasConfig} onClose={() => setIsPreviewOpen(false)} globalVariables={globalVariables} />
+      <GamePreviewModal isOpen={isPreviewOpen} objects={objects} scenes={scenes} initialSceneId={currentSceneId} canvasConfig={canvasConfig} onClose={() => setIsPreviewOpen(false)} globalVariables={globalVariables} library={library} />
       <ExportModal isOpen={isExportOpen} onClose={() => setIsExportOpen(false)} gameData={{objects, scenes, layers, canvasConfig, assets, library}} />
       <AssetManagerModal 
         isOpen={isAssetManagerOpen} 
         assets={assets} 
-        onClose={() => { setIsAssetManagerOpen(false); setAssetSelectionCallback(null); }} 
-        onAddAsset={(a) => setAssets([...assets, a])} 
+        initialMode={assetManagerMode} 
+        onClose={() => { setIsAssetManagerOpen(false); setAssetSelectionCallback(null); setAssetManagerMode('GALLERY'); }} 
+        onAddAsset={(a) => setAssets(prev => [...prev, a])} 
         onDeleteAsset={(id) => setAssets(assets.filter(a => a.id !== id))} 
         onSelectAsset={(url) => { 
             if(assetSelectionCallback) {
@@ -579,9 +599,16 @@ export const App: React.FC = () => {
             }
             setIsAssetManagerOpen(false); 
         }} 
+        onMultiSelectAssets={(urls) => {
+            if(assetSelectionCallback) {
+                assetSelectionCallback(urls);
+                setAssetSelectionCallback(null);
+            }
+            setIsAssetManagerOpen(false); 
+        }}
       />
       <VariableManagerModal isOpen={isVarManagerOpen} variables={globalVariables} onClose={() => setIsVarManagerOpen(false)} onUpdateVariables={(v) => setGlobalVariables(v)} />
-      <SceneManagerModal isOpen={isSceneManagerOpen} scenes={scenes} currentSceneId={currentSceneId} onClose={() => setIsSceneManagerOpen(false)} onSelectScene={(id) => { setCurrentSceneId(id); setSelectedObjectId(null); }} onAddScene={(name) => { const nid = crypto.randomUUID(); setScenes([...scenes, { id: nid, name, objects: [], layers: [{ id: 'l1', name: 'Capa Base', visible: true, locked: false }], backgroundColor: '#111827', camera: { targetObjectId: null, smooth: true, followSpeed: 0.1 } }]); setCurrentSceneId(nid); }} onRenameScene={(id, name) => setScenes(scenes.map(s => s.id === id ? { ...s, name } : s))} onDeleteScene={(id) => { if (scenes.length > 1) { setScenes(scenes.filter(s => s.id !== id)); if (currentSceneId === id) setCurrentSceneId(scenes[0].id); } }} />
+      <SceneManagerModal isOpen={isSceneManagerOpen} scenes={scenes} currentSceneId={currentSceneId} onClose={() => setIsSceneManagerOpen(false)} onSelectScene={(id) => { setCurrentSceneId(id); setSelectedObjectId(null); }} onAddScene={(name) => { const nid = crypto.randomUUID(); setScenes([...scenes, { id: nid, name, objects: [], layers: [{ id: 'l1', name: 'Capa Base', visible: true, locked: false }], backgroundColor: '#111827', camera: { targetObjectId: null, smooth: true, followSpeed: 0.1 }, width: canvasConfig.width, height: canvasConfig.height }]); setCurrentSceneId(nid); }} onRenameScene={(id, name) => setScenes(scenes.map(s => s.id === id ? { ...s, name } : s))} onDeleteScene={(id) => { if (scenes.length > 1) { setScenes(scenes.filter(s => s.id !== id)); if (currentSceneId === id) setCurrentSceneId(scenes[0].id); } }} />
       <CameraSettingsModal isOpen={isCameraModalOpen} onClose={() => setIsCameraModalOpen(false)} objects={objects} cameraConfig={cameraConfig} onUpdateCamera={handleUpdateCamera} />
       <SaveProjectModal isOpen={isSaveModalOpen} currentName={projectName} onClose={() => setIsSaveModalOpen(false)} onConfirm={handleConfirmSave} />
       <MobileSettingsModal 
@@ -591,6 +618,18 @@ export const App: React.FC = () => {
         onSave={(newConfig) => setCanvasConfig({ ...canvasConfig, mobileControls: newConfig })}
         canvasConfig={canvasConfig}
       />
+      
+      {/* World Settings Modal */}
+      {currentScene && (
+          <WorldSettingsModal 
+            isOpen={isWorldSettingsOpen}
+            scene={currentScene}
+            canvasConfig={canvasConfig}
+            onClose={() => setIsWorldSettingsOpen(false)}
+            onUpdateScene={updateCurrentScene}
+            onUpdateCanvas={setCanvasConfig}
+          />
+      )}
       
       {/* Script Editor Modal */}
       {scriptEditingObjectId && (
@@ -614,41 +653,64 @@ export const App: React.FC = () => {
             onSelectObject={(id) => setSelectedObjectId(id)} 
             onDeleteObject={handleDeleteObject} 
             onClose={() => setActivePanel('none')} 
-            className="rounded-t-2xl" 
-            
-            // Grouping Props
-            groups={groups}
+            className="rounded-t-2xl"
+            groups={currentScene?.groups || []}
             onAddGroup={handleAddGroup}
             onDeleteGroup={handleDeleteGroup}
             onAssignToGroup={handleAssignToGroup}
-            // Start Global Drag
             onStartDrag={handleStartDragFromLibrary}
           />
       </div>
-      
-      <div className={`absolute bottom-0 left-0 right-0 h-[60%] z-[60] transform transition-transform duration-300 ease-out ${activePanel === 'properties' && editorMode === 'SCENE' ? 'translate-y-0' : 'translate-y-full'}`}>
+
+      <div className={`absolute bottom-0 left-0 right-0 h-[50%] z-[60] transform transition-transform duration-300 ease-out ${activePanel === 'properties' && editorMode === 'SCENE' ? 'translate-y-0' : 'translate-y-full'}`}>
           <PropertiesPanel 
             selectedObject={selectedObject} 
-            objects={objects} // For linking to other scene objects
-            globalVariables={globalVariables} 
-            assets={assets} 
+            objects={objects} // Pass Scene Objects
+            globalVariables={globalVariables}
+            assets={assets}
             onUpdateObject={handleUpdateObjectAnywhere} 
-            onDeleteObject={handleDeleteObject} // Pass delete handler
-            onOpenAssetManager={(callback) => { 
-                setAssetSelectionCallback(() => callback); 
-                setIsAssetManagerOpen(true); 
-            }} 
-            onSetBrush={handleSetBrush} 
-            activeBrushId={activeBrushId} 
-            brushSolid={brushSolid} 
-            onSetBrushSolid={(b) => setBrushSolid(b)} 
-            currentTool={currentTool} 
-            onOpenScriptEditor={handleOpenScriptEditor} // PASS HANDLER
+            onDeleteObject={handleDeleteObject} 
+            onOpenAssetManager={(cb, mode) => { setAssetSelectionCallback(() => cb); setAssetManagerMode(mode || 'GALLERY'); setIsAssetManagerOpen(true); }}
+            onSetBrush={handleSetBrush}
+            activeBrushId={activeBrushId}
+            brushSolid={brushSolid}
+            onSetBrushSolid={setBrushSolid}
+            currentTool={currentTool}
+            onOpenScriptEditor={handleOpenScriptEditor}
             onClose={() => setActivePanel('none')} 
-            className="rounded-t-2xl" 
+            className="rounded-t-2xl"
           />
       </div>
-      <div className={`absolute bottom-0 left-0 right-0 h-[50%] z-[60] transform transition-transform duration-300 ease-out ${activePanel === 'layers' && editorMode === 'SCENE' ? 'translate-y-0' : 'translate-y-full'}`}><LayersPanel layers={layers} selectedObjectId={selectedObjectId} activeLayerId={activeLayerId} onSelectLayer={(id) => setActiveLayerId(id)} objects={objects} onAddLayer={() => updateCurrentScene({ layers: [...layers, { id: crypto.randomUUID(), name: `Capa ${layers.length + 1}`, visible: true, locked: false }] })} onRemoveLayer={(id) => { if (layers.length > 1) updateCurrentScene({ layers: layers.filter(l => l.id !== id), objects: objects.filter(o => o.layerId !== id) }); }} onUpdateLayer={(id, u) => updateCurrentScene({ layers: layers.map(l => l.id === id ? { ...l, ...u } : l) })} onMoveLayer={(id, d) => { /* logic */ }} onAssignObjectToLayer={(oid, lid) => handleUpdateObjectAnywhere(oid, { layerId: lid })} onClose={() => setActivePanel('none')} className="rounded-t-2xl" /></div>
+
+      <div className={`absolute bottom-0 left-0 right-0 h-[50%] z-[60] transform transition-transform duration-300 ease-out ${activePanel === 'layers' && editorMode === 'SCENE' ? 'translate-y-0' : 'translate-y-full'}`}>
+          <LayersPanel 
+            layers={layers} 
+            selectedObjectId={selectedObjectId}
+            activeLayerId={activeLayerId}
+            onSelectLayer={setActiveLayerId} 
+            objects={objects}
+            onAddLayer={() => { if (currentScene) updateCurrentScene({ layers: [...currentScene.layers, { id: crypto.randomUUID(), name: `Capa ${currentScene.layers.length + 1}`, visible: true, locked: false }] }); }} 
+            onRemoveLayer={(id) => { if (currentScene) updateCurrentScene({ layers: currentScene.layers.filter(l => l.id !== id), objects: currentScene.objects.filter(o => o.layerId !== id) }); }} 
+            onUpdateLayer={(id, updates) => { if (currentScene) updateCurrentScene({ layers: currentScene.layers.map(l => l.id === id ? { ...l, ...updates } : l) }); }} 
+            onMoveLayer={(id, dir) => {
+                if (!currentScene) return;
+                const idx = currentScene.layers.findIndex(l => l.id === id);
+                if (dir === 'up' && idx < currentScene.layers.length - 1) {
+                    const newLayers = [...currentScene.layers];
+                    [newLayers[idx], newLayers[idx + 1]] = [newLayers[idx + 1], newLayers[idx]];
+                    updateCurrentScene({ layers: newLayers });
+                } else if (dir === 'down' && idx > 0) {
+                    const newLayers = [...currentScene.layers];
+                    [newLayers[idx], newLayers[idx - 1]] = [newLayers[idx - 1], newLayers[idx]];
+                    updateCurrentScene({ layers: newLayers });
+                }
+            }}
+            onAssignObjectToLayer={(objId, layerId) => handleUpdateObjectAnywhere(objId, { layerId })}
+            onClose={() => setActivePanel('none')} 
+            className="rounded-t-2xl"
+          />
+      </div>
+
     </div>
   );
 };

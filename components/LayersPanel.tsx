@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Layer, GameObject } from '../types';
 import { Plus, Eye, EyeOff, Lock, Unlock, Trash2, ChevronUp, ChevronDown, Check, X } from './Icons';

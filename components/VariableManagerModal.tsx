@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Variable, VariableType } from '../types';
 import { X, Plus, Trash2, Hash, Type, ToggleLeft, Variable as VariableIcon } from './Icons';
@@ -36,7 +37,9 @@ export const VariableManagerModal: React.FC<VariableManagerModalProps> = ({
   };
 
   const handleDelete = (id: string) => {
-      onUpdateVariables(variables.filter(v => v.id !== id));
+      if(confirm("¿Eliminar variable global?")) {
+          onUpdateVariables(variables.filter(v => v.id !== id));
+      }
   };
 
   const handleValueChange = (id: string, value: any) => {
