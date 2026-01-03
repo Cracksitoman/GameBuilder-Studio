@@ -18,10 +18,23 @@ import { CameraSettingsModal } from './components/CameraSettingsModal';
 import { ScriptEditorModal } from './components/ScriptEditorModal'; 
 import { DocumentationPage } from './components/DocumentationPage'; 
 import { MobileSettingsModal } from './components/MobileSettingsModal'; 
-import { WorldSettingsModal } from './components/WorldSettingsModal'; // NEW
+import { WorldSettingsModal } from './components/WorldSettingsModal'; 
 import { BlockEditor } from './components/BlockEditor'; 
-import { GameObject, ObjectType, EditorTool, CanvasConfig, Layer, Asset, Variable, Scene, CameraConfig } from './types';
+import { GameObject, ObjectType, EditorTool, CanvasConfig, Layer, Asset, Variable, Scene, CameraConfig, MobileControlsConfig } from './types';
 import { Layers, Plus, Settings, Box, Move, Maximize, Hand, ArrowRight, Layout, Workflow, Grid3x3, Menu, ChevronLeft, Clapperboard, Variable as VariableIcon, Video, Smartphone, MonitorSmartphone, Home, Puzzle, Map } from './components/Icons';
+
+// Default Mobile Controls
+const DEFAULT_MOBILE_CONTROLS: MobileControlsConfig = {
+    enabled: true,
+    joystickX: 15,
+    joystickY: 80,
+    joystickSize: 150,
+    buttonX: 85,
+    buttonY: 80,
+    buttonSize: 100,
+    opacity: 0.6,
+    color: '#ffffff'
+};
 
 // Helper to create object
 const createInitialObject = (type: ObjectType, count: number): GameObject => {
@@ -58,7 +71,7 @@ const createInitialObject = (type: ObjectType, count: number): GameObject => {
 
 type ActivePanel = 'none' | 'library' | 'properties' | 'layers';
 type ViewState = 'START' | 'EDITOR' | 'DOCS'; 
-type EditorMode = 'SCENE' | 'EVENTS' | 'BLOCKS'; // Added BLOCKS
+type EditorMode = 'SCENE' | 'EVENTS' | 'BLOCKS';
 
 export const App: React.FC = () => {
   const [viewState, setViewState] = useState<ViewState>('START');
@@ -69,13 +82,10 @@ export const App: React.FC = () => {
   const [scenes, setScenes] = useState<Scene[]>([]);
   const [currentSceneId, setCurrentSceneId] = useState<string>('');
   
-  // Library State: The Prototypes
   const [library, setLibrary] = useState<GameObject[]>([]);
-
   const [assets, setAssets] = useState<Asset[]>([]); 
   const [globalVariables, setGlobalVariables] = useState<Variable[]>([]); 
 
-  // History State for Undo/Redo
   const [past, setPast] = useState<Scene[][]>([]);
   const [future, setFuture] = useState<Scene[][]>([]);
 
@@ -86,31 +96,32 @@ export const App: React.FC = () => {
   const [activeBrushId, setActiveBrushId] = useState<string | null>(null);
   const [brushSolid, setBrushSolid] = useState<boolean>(false); 
   
-  // Drag Proxy State (Global Drag)
   const [dragProxy, setDragProxy] = useState<{ obj: GameObject, x: number, y: number } | null>(null);
-
-  // Grid State
   const [showGrid, setShowGrid] = useState(false);
   const [gridSize, setGridSize] = useState(32);
 
-  const [canvasConfig, setCanvasConfig] = useState<CanvasConfig>({ width: 800, height: 450, mode: 'LANDSCAPE' });
+  const [canvasConfig, setCanvasConfig] = useState<CanvasConfig>({ 
+      width: 800, 
+      height: 450, 
+      mode: 'LANDSCAPE',
+      mobileControls: DEFAULT_MOBILE_CONTROLS 
+  });
+
   const [editingObject, setEditingObject] = useState<GameObject | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [isAssetManagerOpen, setIsAssetManagerOpen] = useState(false);
-  const [assetManagerMode, setAssetManagerMode] = useState<'GALLERY' | 'SHEET_SLICER'>('GALLERY'); // Control initial mode
+  const [assetManagerMode, setAssetManagerMode] = useState<'GALLERY' | 'SHEET_SLICER'>('GALLERY'); 
   
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   const [isVarManagerOpen, setIsVarManagerOpen] = useState(false); 
   const [isSceneManagerOpen, setIsSceneManagerOpen] = useState(false); 
   const [isCameraModalOpen, setIsCameraModalOpen] = useState(false); 
   const [isMobileSettingsOpen, setIsMobileSettingsOpen] = useState(false); 
-  const [isWorldSettingsOpen, setIsWorldSettingsOpen] = useState(false); // NEW
+  const [isWorldSettingsOpen, setIsWorldSettingsOpen] = useState(false); 
   
-  // Script Editor State
   const [isScriptEditorOpen, setIsScriptEditorOpen] = useState(false);
   const [scriptEditingObjectId, setScriptEditingObjectId] = useState<string | null>(null);
-
   const [assetSelectionCallback, setAssetSelectionCallback] = useState<((url: string | string[]) => void) | null>(null);
 
   const currentScene = scenes.find(s => s.id === currentSceneId);
@@ -119,7 +130,6 @@ export const App: React.FC = () => {
   const groups = currentScene ? (currentScene.groups || []) : []; 
   const cameraConfig = currentScene?.camera || { targetObjectId: null, smooth: true, followSpeed: 0.1 };
 
-  // Open Properties Panel automatically when selecting object from Library
   useEffect(() => {
       const isLibraryObj = library.some(o => o.id === selectedObjectId);
       if (isLibraryObj) {
@@ -134,71 +144,25 @@ export const App: React.FC = () => {
       }
   }, [currentSceneId, scenes]);
 
-  // Determine if selected object is from Scene or Library
   const selectedObject = objects.find(o => o.id === selectedObjectId) || library.find(o => o.id === selectedObjectId) || null;
 
-  // --- GLOBAL DRAG AND DROP HANDLERS (POINTER EVENTS) ---
   useEffect(() => {
       if (!dragProxy) return;
-
       const handleGlobalMove = (e: PointerEvent) => {
           setDragProxy(prev => prev ? { ...prev, x: e.clientX, y: e.clientY } : null);
       };
-
       const handleGlobalUp = (e: PointerEvent) => {
-          // Check if dropped over canvas area
           const stageArea = document.getElementById('koda-stage-area');
           if (stageArea) {
               const rect = stageArea.getBoundingClientRect();
-              
-              if (
-                  e.clientX >= rect.left && 
-                  e.clientX <= rect.right && 
-                  e.clientY >= rect.top && 
-                  e.clientY <= rect.bottom
-              ) {
-                  // NOTE: This calculation might need adjustment if stage is zoomed/panned via CSS transform
-                  // However, for basic dropping relative to viewport it approximates.
-                  // A better approach in Canvas.tsx handles dropping properly if using onDropObject.
-                  // But since we calculate drop relative to the element:
-                  
-                  // This is extremely simplified. A real impl would reverse projection matrix of pan/zoom.
-                  // For now we rely on the visual proxy.
-                  
-                  // Let's defer actual logic to Canvas component via a specialized prop or method, 
-                  // OR assume the user drops generally in center if not precise.
-                  // Given complexity, let's keep it simple: drop where mouse is relative to window, 
-                  // but we need world coordinates.
-                  
-                  // We'll trigger the drop handler which needs screen coords -> world coords logic.
-                  // But handleObjectDropOnCanvas expects WORLD coords.
-                  // We can't calculate world coords easily here without Canvas viewPos/Zoom state.
-                  
-                  // HACK: Dispatch a custom event that Canvas listens to?
-                  // OR: Pass the screen X/Y to handleObjectDropOnCanvas and let Canvas.tsx convert it?
-                  // Canvas.tsx has the zoom/pan state.
-                  // Let's pass SCREEN coords and let handleObjectDropOnCanvas logic (which needs access to canvas state) handle it.
-                  // Wait, handleObjectDropOnCanvas is in App.tsx. It doesn't know zoom.
-                  
-                  // FIX: We will just drop it at center of screen for now if precise drop is hard,
-                  // OR we assume 0,0 pan for simplicity in this MVP.
-                  
-                  // BETTER FIX: The Canvas component should handle the drop event.
-                  // We can simulate a drop event on the canvas element?
-                  
-                  // Let's just use the rect relative position for now, assuming 100% zoom for calculation
-                  // This is a known limitation in this decoupled React architecture without a global store for Viewport.
-                  // We will drop at (0,0) world + offset.
-                  
+              if (e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom) {
                   handleObjectDropOnCanvas(dragProxy.obj.id, 100, 100); 
               }
           }
           setDragProxy(null);
       };
-
       window.addEventListener('pointermove', handleGlobalMove);
       window.addEventListener('pointerup', handleGlobalUp);
-
       return () => {
           window.removeEventListener('pointermove', handleGlobalMove);
           window.removeEventListener('pointerup', handleGlobalUp);
@@ -302,7 +266,7 @@ export const App: React.FC = () => {
           layers: [{ id: firstLayerId, name: 'Capa Base', visible: true, locked: false }],
           camera: { targetObjectId: null, smooth: true, followSpeed: 0.1 },
           groups: [],
-          width: 800, // Default world size
+          width: 800,
           height: 450
       };
       setScenes([initialScene]);
@@ -312,7 +276,12 @@ export const App: React.FC = () => {
       setAssets([]);
       setGlobalVariables([]);
       setPast([]); setFuture([]); 
-      setCanvasConfig({ width: 800, height: 450, mode: 'LANDSCAPE' });
+      setCanvasConfig({ 
+          width: 800, 
+          height: 450, 
+          mode: 'LANDSCAPE',
+          mobileControls: DEFAULT_MOBILE_CONTROLS
+      });
       setProjectName("Nuevo Proyecto Koda");
       setViewState('EDITOR');
   };
@@ -365,10 +334,8 @@ export const App: React.FC = () => {
       if (!currentScene) return;
       const prototype = library.find(o => o.id === libraryId);
       if (!prototype) return;
-
       recordHistory();
       const targetLayerId = activeLayerId || layers[layers.length - 1].id;
-      
       const newInstance: GameObject = {
           ...JSON.parse(JSON.stringify(prototype)), 
           id: crypto.randomUUID(), 
@@ -377,7 +344,6 @@ export const App: React.FC = () => {
           y: Math.round(y - (prototype.height / 2)),
           layerId: targetLayerId
       };
-
       setScenes(prev => prev.map(s => s.id === currentSceneId ? { ...s, objects: [...s.objects, newInstance] } : s));
       setSelectedObjectId(newInstance.id);
   };
@@ -450,7 +416,6 @@ export const App: React.FC = () => {
   return (
     <div className="h-[100dvh] w-screen bg-gray-950 text-white font-sans overflow-hidden flex flex-col relative animate-in fade-in duration-500 supports-[height:100dvh]:h-[100dvh]">
       
-      {/* DRAG PROXY LAYER */}
       {dragProxy && (
           <div 
             className="fixed z-[200] pointer-events-none flex items-center justify-center opacity-80"
@@ -530,7 +495,7 @@ export const App: React.FC = () => {
                     <div className="absolute inset-0 pb-16 bg-gray-950">
                         {currentScene && (
                             <Canvas 
-                                scene={currentScene} // Pass scene
+                                scene={currentScene} 
                                 objects={objects} 
                                 layers={layers} 
                                 selectedObjectId={selectedObjectId} 
@@ -541,12 +506,10 @@ export const App: React.FC = () => {
                                 assets={assets} 
                                 canvasConfig={canvasConfig} 
                                 cameraConfig={cameraConfig} 
-                                // Grid Props
                                 showGrid={showGrid}
                                 gridSize={gridSize}
                                 onToggleGrid={setShowGrid}
                                 onSetGridSize={setGridSize}
-                                // Callbacks
                                 onSelectObject={(id) => setSelectedObjectId(id)} 
                                 onUpdateObject={handleUpdateObjectAnywhere} 
                                 onEditObject={(o) => setEditingObject(o)} 
@@ -614,12 +577,10 @@ export const App: React.FC = () => {
       <MobileSettingsModal 
         isOpen={isMobileSettingsOpen} 
         onClose={() => setIsMobileSettingsOpen(false)} 
-        config={canvasConfig.mobileControls || { enabled: true, joystickX: 15, joystickY: 80, joystickSize: 150, buttonX: 85, buttonY: 80, buttonSize: 100, opacity: 0.5, color: '#ffffff' }}
+        config={canvasConfig.mobileControls || DEFAULT_MOBILE_CONTROLS}
         onSave={(newConfig) => setCanvasConfig({ ...canvasConfig, mobileControls: newConfig })}
         canvasConfig={canvasConfig}
       />
-      
-      {/* World Settings Modal */}
       {currentScene && (
           <WorldSettingsModal 
             isOpen={isWorldSettingsOpen}
@@ -630,8 +591,6 @@ export const App: React.FC = () => {
             onUpdateCanvas={setCanvasConfig}
           />
       )}
-      
-      {/* Script Editor Modal */}
       {scriptEditingObjectId && (
           <ScriptEditorModal 
              isOpen={isScriptEditorOpen}
@@ -641,13 +600,10 @@ export const App: React.FC = () => {
              onSave={handleSaveScript}
           />
       )}
-
-      {/* Panels */}
       {activePanel !== 'none' && editorMode === 'SCENE' && <div className="absolute inset-0 bg-black/50 z-[55]" onClick={() => setActivePanel('none')} />}
-      
       <div className={`absolute bottom-0 left-0 right-0 h-[60%] z-[60] transform transition-transform duration-300 ease-out ${activePanel === 'library' && editorMode === 'SCENE' ? 'translate-y-0' : 'translate-y-full'}`}>
           <ObjectLibrary 
-            objects={library}  // Pass Library Objects here
+            objects={library} 
             selectedObjectId={selectedObjectId} 
             onAddObject={handleAddObjectToLibrary} 
             onSelectObject={(id) => setSelectedObjectId(id)} 
@@ -661,11 +617,10 @@ export const App: React.FC = () => {
             onStartDrag={handleStartDragFromLibrary}
           />
       </div>
-
       <div className={`absolute bottom-0 left-0 right-0 h-[50%] z-[60] transform transition-transform duration-300 ease-out ${activePanel === 'properties' && editorMode === 'SCENE' ? 'translate-y-0' : 'translate-y-full'}`}>
           <PropertiesPanel 
             selectedObject={selectedObject} 
-            objects={objects} // Pass Scene Objects
+            objects={objects} 
             globalVariables={globalVariables}
             assets={assets}
             onUpdateObject={handleUpdateObjectAnywhere} 
@@ -681,7 +636,6 @@ export const App: React.FC = () => {
             className="rounded-t-2xl"
           />
       </div>
-
       <div className={`absolute bottom-0 left-0 right-0 h-[50%] z-[60] transform transition-transform duration-300 ease-out ${activePanel === 'layers' && editorMode === 'SCENE' ? 'translate-y-0' : 'translate-y-full'}`}>
           <LayersPanel 
             layers={layers} 
@@ -710,7 +664,6 @@ export const App: React.FC = () => {
             className="rounded-t-2xl"
           />
       </div>
-
     </div>
   );
 };

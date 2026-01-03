@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Variable, VariableType } from '../types';
-import { X, Plus, Trash2, Hash, Type, ToggleLeft, Variable as VariableIcon } from './Icons';
+import { X, Plus, Trash2, Hash, Type, ToggleLeft, Variable as VariableIcon, List } from './Icons';
 
 interface VariableManagerModalProps {
   isOpen: boolean;
@@ -23,7 +23,12 @@ export const VariableManagerModal: React.FC<VariableManagerModalProps> = ({
 
   const handleAdd = () => {
       if (!newVarName.trim()) return;
-      const initialValue = newVarType === 'NUMBER' ? 0 : (newVarType === 'BOOLEAN' ? false : "Texto");
+      
+      let initialValue: any = 0;
+      if (newVarType === 'BOOLEAN') initialValue = false;
+      if (newVarType === 'STRING') initialValue = "";
+      if (newVarType === 'ARRAY') initialValue = [];
+      if (newVarType === 'OBJECT') initialValue = {};
       
       const newVar: Variable = {
           id: crypto.randomUUID(),
@@ -50,7 +55,6 @@ export const VariableManagerModal: React.FC<VariableManagerModalProps> = ({
     <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-gray-900 border border-gray-700 w-full max-w-md rounded-2xl shadow-2xl flex flex-col overflow-hidden h-[600px]">
         
-        {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-800 bg-gray-800/50">
           <div className="flex items-center space-x-2">
              <VariableIcon className="w-5 h-5 text-pink-500" />
@@ -61,13 +65,12 @@ export const VariableManagerModal: React.FC<VariableManagerModalProps> = ({
           </button>
         </div>
 
-        {/* List */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-950/50">
             {variables.length === 0 && (
                 <div className="text-center text-gray-500 py-10 flex flex-col items-center">
                     <VariableIcon className="w-10 h-10 mb-2 opacity-20" />
                     <p>No hay variables globales.</p>
-                    <p className="text-xs">Crea una para guardar puntuaciones, vidas, etc.</p>
+                    <p className="text-xs">Crea una para guardar puntuaciones, vidas o inventarios.</p>
                 </div>
             )}
             
@@ -78,10 +81,10 @@ export const VariableManagerModal: React.FC<VariableManagerModalProps> = ({
                             {v.type === 'NUMBER' && <Hash className="w-3 h-3 text-blue-400" />}
                             {v.type === 'STRING' && <Type className="w-3 h-3 text-yellow-400" />}
                             {v.type === 'BOOLEAN' && <ToggleLeft className="w-3 h-3 text-green-400" />}
+                            {v.type === 'ARRAY' && <List className="w-3 h-3 text-purple-400" />}
                             <span className="font-bold text-sm text-white">{v.name}</span>
                         </div>
                         
-                        {/* Inline Value Editor for Default Value */}
                         <div className="flex items-center space-x-2">
                              <span className="text-[10px] text-gray-500">Valor Inicial:</span>
                              {v.type === 'BOOLEAN' ? (
@@ -91,6 +94,8 @@ export const VariableManagerModal: React.FC<VariableManagerModalProps> = ({
                                  >
                                      {v.value ? 'TRUE' : 'FALSE'}
                                  </button>
+                             ) : (v.type === 'ARRAY' || v.type === 'OBJECT') ? (
+                                <span className="text-[10px] text-gray-400 font-mono">[{v.type}] Vacío</span>
                              ) : (
                                  <input 
                                     type={v.type === 'NUMBER' ? 'number' : 'text'}
@@ -108,7 +113,6 @@ export const VariableManagerModal: React.FC<VariableManagerModalProps> = ({
             ))}
         </div>
 
-        {/* Footer Add */}
         <div className="p-4 bg-gray-800 border-t border-gray-700">
             <label className="text-xs font-bold text-gray-500 uppercase block mb-2">Crear Nueva Variable</label>
             <div className="flex space-x-2">
@@ -116,7 +120,7 @@ export const VariableManagerModal: React.FC<VariableManagerModalProps> = ({
                    type="text" 
                    value={newVarName}
                    onChange={(e) => setNewVarName(e.target.value)}
-                   placeholder="Nombre (ej. Puntos)"
+                   placeholder="Nombre"
                    className="flex-1 bg-gray-950 border border-gray-600 rounded-lg px-3 text-sm text-white focus:border-pink-500 outline-none"
                 />
                 <select 
@@ -126,7 +130,8 @@ export const VariableManagerModal: React.FC<VariableManagerModalProps> = ({
                 >
                     <option value="NUMBER">Número</option>
                     <option value="STRING">Texto</option>
-                    <option value="BOOLEAN">Si / No</option>
+                    <option value="BOOLEAN">Si/No</option>
+                    <option value="ARRAY">Lista (Inv)</option>
                 </select>
                 <button 
                    onClick={handleAdd}

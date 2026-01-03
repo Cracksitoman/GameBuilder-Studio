@@ -5,7 +5,7 @@ export enum ObjectType {
   PLAYER = 'PLAYER',
   ENEMY = 'ENEMY',
   TILEMAP = 'TILEMAP',
-  UI_BUTTON = 'UI_BUTTON' // NEW
+  UI_BUTTON = 'UI_BUTTON'
 }
 
 export enum EditorTool {
@@ -25,7 +25,8 @@ export enum BehaviorType {
   SINE_MOVEMENT = 'SINE',
   ANIMATION = 'ANIMATION',
   HEALTH = 'HEALTH',
-  TILT_CONTROL = 'TILT_CONTROL' // NEW: Comportamiento de giroscopio dedicado
+  TILT_CONTROL = 'TILT_CONTROL',
+  GRID_LAYOUT = 'GRID_LAYOUT'
 }
 
 export interface Asset {
@@ -55,7 +56,7 @@ export interface Behavior {
   properties: Record<string, any>; 
 }
 
-export type VariableType = 'NUMBER' | 'BOOLEAN' | 'STRING';
+export type VariableType = 'NUMBER' | 'BOOLEAN' | 'STRING' | 'ARRAY' | 'OBJECT';
 
 export interface Variable {
   id: string;
@@ -82,7 +83,8 @@ export type ConditionType =
   | 'DISTANCE_TO'
   | 'IS_MOVING'
   | 'IS_VISIBLE'
-  | 'COMPARE_POSITION';
+  | 'COMPARE_POSITION'
+  | 'ARRAY_CONTAINS';
 
 export type ActionType = 
   | 'DESTROY' 
@@ -109,7 +111,6 @@ export type ActionType =
   | 'SET_CAMERA_ZOOM' 
   | 'DAMAGE_OBJECT' 
   | 'HEAL_OBJECT'
-  // NEW MOTION BLOCKS
   | 'MOVE_FORWARD'
   | 'SET_X'
   | 'SET_Y'
@@ -117,7 +118,11 @@ export type ActionType =
   | 'CHANGE_Y'
   | 'SET_ROTATION'
   | 'CHANGE_ROTATION'
-  | 'POINT_TOWARDS_POINT';
+  | 'POINT_TOWARDS_POINT'
+  | 'PUSH_TO_ARRAY'
+  | 'REMOVE_FROM_ARRAY'
+  | 'CLEAR_ARRAY'
+  | 'REPEAT_X_TIMES';
 
 export interface EventCondition {
   id: string;
@@ -179,7 +184,7 @@ export interface GameObject {
   opacity: number;
   previewSpriteUrl?: string;
   isObstacle: boolean;
-  isGui?: boolean; // Controls if it is UI fixed to screen
+  isGui?: boolean; 
   behaviors: Behavior[]; 
   events: GameEvent[]; 
   variables: Variable[];
@@ -216,8 +221,8 @@ export interface Scene {
   groups?: string[]; 
   backgroundColor: string;
   camera?: CameraConfig;
-  width?: number; // World Width
-  height?: number; // World Height
+  width?: number; 
+  height?: number; 
 }
 
 export interface CanvasConfig {

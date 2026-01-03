@@ -104,7 +104,10 @@ import {
   Puzzle, 
   RefreshCw,
   MapPin,
-  Map // NEW
+  Map,
+  List,
+  Star,
+  MousePointerSquareDashed
 } from 'lucide-react';
 
 export {
@@ -212,5 +215,8 @@ export {
   Puzzle,
   RefreshCw,
   MapPin,
-  Map
+  Map,
+  List,
+  Star,
+  MousePointerSquareDashed
 };

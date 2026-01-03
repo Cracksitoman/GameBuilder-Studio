@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Asset } from '../types';
-import { X, UploadCloud, Paintbrush, Grid3x3, Trash2, Eraser, Save, PaintBucket, Check, Palette, ChevronLeft, Download, ZoomIn, ZoomOut, Plus, Maximize, Volume2, Music, Scissors, ImagePlus, Hand } from './Icons';
+import { X, UploadCloud, Paintbrush, Grid3x3, Trash2, Eraser, Save, PaintBucket, Check, Palette, ChevronLeft, Download, ZoomIn, ZoomOut, Plus, Maximize, Volume2, Music, Scissors, ImagePlus, Hand, Star, MousePointerSquareDashed } from './Icons';
 
 interface AssetManagerModalProps {
   isOpen: boolean;
@@ -15,7 +15,7 @@ interface AssetManagerModalProps {
   initialMode?: 'GALLERY' | 'SHEET_SLICER';
 }
 
-type ToolType = 'BRUSH' | 'ERASER' | 'BUCKET' | 'HAND';
+type ToolType = 'BRUSH' | 'ERASER' | 'BUCKET' | 'HAND' | 'SELECT';
 type ViewMode = 'GALLERY' | 'DRAW' | 'SIZE_SELECT' | 'SHEET_SLICER';
 
 const generatePalette = () => {
@@ -62,7 +62,15 @@ export const AssetManagerModal: React.FC<AssetManagerModalProps> = ({
   const [currentTool, setCurrentTool] = useState<ToolType>('BRUSH');
   const [drawName, setDrawName] = useState('Nuevo Sprite');
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [favorites, setFavorites] = useState<string[]>(['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff']);
   
+  // Selection State
+  const [selection, setSelection] = useState<{ x1: number, y1: number, x2: number, y2: number } | null>(null);
+  const [isSelecting, setIsSelecting] = useState(false);
+  const [isMovingSelection, setIsMovingSelection] = useState(false);
+  const [floatingPixels, setFloatingPixels] = useState<{ color: string, dx: number, dy: number }[] | null>(null);
+  const [selectionOffset, setSelectionOffset] = useState({ x: 0, y: 0 });
+
   // Sheet Slicer State
   const [sheetImage, setSheetImage] = useState<HTMLImageElement | null>(null);
   const [sheetCols, setSheetCols] = useState(4);
@@ -84,17 +92,12 @@ export const AssetManagerModal: React.FC<AssetManagerModalProps> = ({
       if(isOpen) {
           setMode(initialMode);
           setCanvasOffset({ x: 0, y: 0 });
+          setSelection(null);
+          setFloatingPixels(null);
       }
   }, [isOpen, initialMode]);
 
   const visibleAssets = assets.filter(a => allowedTypes.includes(a.type));
-
-  const colorToHex = (color: string) => {
-      const ctx = document.createElement('canvas').getContext('2d');
-      if(!ctx) return '#000000';
-      ctx.fillStyle = color;
-      return ctx.fillStyle;
-  };
 
   const handleInitNewDrawing = () => setMode('SIZE_SELECT');
 
@@ -107,6 +110,8 @@ export const AssetManagerModal: React.FC<AssetManagerModalProps> = ({
       setCanvasOffset({ x: 0, y: 0 });
       setMode('DRAW');
       setShowExtendedPalette(false);
+      setSelection(null);
+      setFloatingPixels(null);
   };
 
   const loadSpriteForEditing = (asset: Asset) => {
@@ -138,11 +143,32 @@ export const AssetManagerModal: React.FC<AssetManagerModalProps> = ({
           setPixelSize(size > 32 ? 10 : 20);
           setCanvasOffset({ x: 0, y: 0 });
           setMode('DRAW');
+          setSelection(null);
+          setFloatingPixels(null);
       };
+  };
+
+  const commitFloatingPixels = () => {
+    if (!floatingPixels || !selection) return;
+    const newPixels = [...pixels];
+    const sx = Math.min(selection.x1, selection.x2);
+    const sy = Math.min(selection.y1, selection.y2);
+    floatingPixels.forEach(p => {
+        const nx = sx + p.dx;
+        const ny = sy + p.dy;
+        if (nx >= 0 && nx < gridSize && ny >= 0 && ny < gridSize) {
+            newPixels[ny * gridSize + nx] = p.color;
+        }
+    });
+    setPixels(newPixels);
+    setFloatingPixels(null);
+    setSelection(null);
   };
 
   const paintPixel = (index: number) => {
     if (index < 0 || index >= pixels.length) return;
+    if (currentTool === 'SELECT') return;
+
     if (currentTool === 'BUCKET') {
         const targetColor = pixels[index];
         const newPixels = [...pixels];
@@ -174,13 +200,65 @@ export const AssetManagerModal: React.FC<AssetManagerModalProps> = ({
     }
   };
 
+  const toggleFavorite = (color: string) => {
+    if (favorites.includes(color)) {
+        setFavorites(f => f.filter(c => c !== color));
+    } else {
+        setFavorites(f => [...f, color]);
+    }
+  };
+
   const handlePointerDown = (e: React.PointerEvent, index: number | null) => {
       e.currentTarget.setPointerCapture(e.pointerId);
       activePointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
       
-      if (activePointers.current.size === 1 && currentTool !== 'HAND' && index !== null) {
-          setIsDrawing(true);
-          paintPixel(index);
+      const rect = e.currentTarget.getBoundingClientRect();
+      const cx = rect.width / 2;
+      const cy = rect.height / 2;
+      const totalGridSize = gridSize * pixelSize;
+      const gridOriginX = cx + canvasOffset.x - (totalGridSize / 2);
+      const gridOriginY = cy + canvasOffset.y - (totalGridSize / 2);
+      const mouseXInGrid = (e.clientX - rect.left) - gridOriginX;
+      const mouseYInGrid = (e.clientY - rect.top) - gridOriginY;
+      const gx = Math.floor(mouseXInGrid / pixelSize);
+      const gy = Math.floor(mouseYInGrid / pixelSize);
+
+      if (activePointers.current.size === 1) {
+          if (currentTool === 'SELECT') {
+              if (selection && gx >= Math.min(selection.x1, selection.x2) && gx <= Math.max(selection.x1, selection.x2) && gy >= Math.min(selection.y1, selection.y2) && gy <= Math.max(selection.y1, selection.y2)) {
+                  // Start moving existing selection
+                  if (!floatingPixels) {
+                      const data = [];
+                      const sx = Math.min(selection.x1, selection.x2);
+                      const sy = Math.min(selection.y1, selection.y2);
+                      const ex = Math.max(selection.x1, selection.x2);
+                      const ey = Math.max(selection.y1, selection.y2);
+                      const newPixels = [...pixels];
+                      for(let j = sy; j <= ey; j++) {
+                          for(let i = sx; i <= ex; i++) {
+                              const idx = j * gridSize + i;
+                              data.push({ color: pixels[idx], dx: i - sx, dy: j - sy });
+                              newPixels[idx] = 'transparent';
+                          }
+                      }
+                      setPixels(newPixels);
+                      setFloatingPixels(data);
+                  }
+                  setIsMovingSelection(true);
+                  setSelectionOffset({ x: gx, y: gy });
+              } else {
+                  // Start new selection
+                  if (floatingPixels) commitFloatingPixels();
+                  setIsSelecting(true);
+                  setSelection({ x1: gx, y1: gy, x2: gx, y2: gy });
+              }
+              return;
+          }
+          
+          if (currentTool !== 'HAND' && index !== null) {
+              setIsDrawing(true);
+              paintPixel(index);
+          }
       }
   };
 
@@ -189,7 +267,6 @@ export const AssetManagerModal: React.FC<AssetManagerModalProps> = ({
       activePointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
       if (activePointers.current.size === 2) {
-          // Pinch to Zoom & Pan
           setIsDrawing(false);
           const points = Array.from(activePointers.current.values()) as { x: number, y: number }[];
           const dist = Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y);
@@ -210,6 +287,35 @@ export const AssetManagerModal: React.FC<AssetManagerModalProps> = ({
       }
 
       if (activePointers.current.size === 1) {
+          const rect = e.currentTarget.getBoundingClientRect();
+          const cx = rect.width / 2;
+          const cy = rect.height / 2;
+          const totalGridSize = gridSize * pixelSize;
+          const gridOriginX = cx + canvasOffset.x - (totalGridSize / 2);
+          const gridOriginY = cy + canvasOffset.y - (totalGridSize / 2);
+          const mouseXInGrid = (e.clientX - rect.left) - gridOriginX;
+          const mouseYInGrid = (e.clientY - rect.top) - gridOriginY;
+          const gx = Math.floor(mouseXInGrid / pixelSize);
+          const gy = Math.floor(mouseYInGrid / pixelSize);
+
+          if (isSelecting && selection) {
+              setSelection({ ...selection, x2: gx, y2: gy });
+              return;
+          }
+
+          if (isMovingSelection && selection) {
+              const dx = gx - selectionOffset.x;
+              const dy = gy - selectionOffset.y;
+              setSelection({
+                  x1: selection.x1 + dx,
+                  y1: selection.y1 + dy,
+                  x2: selection.x2 + dx,
+                  y2: selection.y2 + dy
+              });
+              setSelectionOffset({ x: gx, y: gy });
+              return;
+          }
+
           if (currentTool === 'HAND' || (e.buttons === 4)) { 
               if (prevPos) {
                   setCanvasOffset(o => ({
@@ -218,25 +324,6 @@ export const AssetManagerModal: React.FC<AssetManagerModalProps> = ({
                   }));
               }
           } else if (isDrawing) {
-              const rect = e.currentTarget.getBoundingClientRect();
-              
-              // CORRECTED MATH: Account for centered layout and offsets
-              const cx = rect.width / 2;
-              const cy = rect.height / 2;
-              const totalGridSize = gridSize * pixelSize;
-              
-              // Start position of the grid relative to the container
-              const gridOriginX = cx + canvasOffset.x - (totalGridSize / 2);
-              const gridOriginY = cy + canvasOffset.y - (totalGridSize / 2);
-              
-              // Mouse position relative to the grid origin
-              const mouseXInGrid = (e.clientX - rect.left) - gridOriginX;
-              const mouseYInGrid = (e.clientY - rect.top) - gridOriginY;
-              
-              // Convert to grid index
-              const gx = Math.floor(mouseXInGrid / pixelSize);
-              const gy = Math.floor(mouseYInGrid / pixelSize);
-              
               if (gx >= 0 && gx < gridSize && gy >= 0 && gy < gridSize) {
                   paintPixel(gy * gridSize + gx);
               }
@@ -250,6 +337,8 @@ export const AssetManagerModal: React.FC<AssetManagerModalProps> = ({
           lastPinchDist.current = null;
       }
       setIsDrawing(false);
+      setIsSelecting(false);
+      setIsMovingSelection(false);
   };
 
   const handleImportToCanvas = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -283,6 +372,7 @@ export const AssetManagerModal: React.FC<AssetManagerModalProps> = ({
   };
 
   const handleSaveDrawing = () => {
+    if (floatingPixels) commitFloatingPixels();
     const canvas = document.createElement('canvas');
     canvas.width = gridSize; canvas.height = gridSize;
     const ctx = canvas.getContext('2d');
@@ -317,7 +407,6 @@ export const AssetManagerModal: React.FC<AssetManagerModalProps> = ({
     }
   };
 
-  // --- DOWNLOAD HELPER ---
   const handleDownloadAsset = (asset: Asset) => {
       const link = document.createElement('a');
       link.href = asset.url;
@@ -470,22 +559,44 @@ export const AssetManagerModal: React.FC<AssetManagerModalProps> = ({
 
         {mode === 'DRAW' && (
             <div className="flex-1 flex overflow-hidden bg-gray-950">
-                 <div className="w-16 bg-gray-900 border-r border-gray-800 flex flex-col items-center py-4 space-y-4 z-10 shrink-0">
-                     <button onClick={() => setCurrentTool('BRUSH')} className={`p-3 rounded-xl ${currentTool === 'BRUSH' ? 'bg-purple-600' : 'text-gray-400'}`}><Paintbrush className="w-5 h-5" /></button>
-                     <button onClick={() => setCurrentTool('BUCKET')} className={`p-3 rounded-xl ${currentTool === 'BUCKET' ? 'bg-blue-600' : 'text-gray-400'}`}><PaintBucket className="w-5 h-5" /></button>
-                     <button onClick={() => setCurrentTool('ERASER')} className={`p-3 rounded-xl ${currentTool === 'ERASER' ? 'bg-red-600' : 'text-gray-400'}`}><Eraser className="w-5 h-5" /></button>
-                     <button onClick={() => setCurrentTool('HAND')} className={`p-3 rounded-xl ${currentTool === 'HAND' ? 'bg-orange-600' : 'text-gray-400'}`}><Hand className="w-5 h-5" /></button>
+                 <div className="w-20 bg-gray-900 border-r border-gray-800 flex flex-col items-center py-4 space-y-4 z-10 shrink-0">
+                     <button onClick={() => setCurrentTool('BRUSH')} className={`p-3 rounded-xl transition-colors ${currentTool === 'BRUSH' ? 'bg-purple-600 text-white' : 'text-gray-400 hover:bg-gray-800'}`} title="Pincel"><Paintbrush className="w-5 h-5" /></button>
+                     <button onClick={() => setCurrentTool('BUCKET')} className={`p-3 rounded-xl transition-colors ${currentTool === 'BUCKET' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-gray-800'}`} title="Cubo"><PaintBucket className="w-5 h-5" /></button>
+                     <button onClick={() => setCurrentTool('SELECT')} className={`p-3 rounded-xl transition-colors ${currentTool === 'SELECT' ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:bg-gray-800'}`} title="Seleccionar"><MousePointerSquareDashed className="w-5 h-5" /></button>
+                     <button onClick={() => setCurrentTool('ERASER')} className={`p-3 rounded-xl transition-colors ${currentTool === 'ERASER' ? 'bg-red-600 text-white' : 'text-gray-400 hover:bg-gray-800'}`} title="Borrador"><Eraser className="w-5 h-5" /></button>
+                     <button onClick={() => setCurrentTool('HAND')} className={`p-3 rounded-xl transition-colors ${currentTool === 'HAND' ? 'bg-orange-600 text-white' : 'text-gray-400 hover:bg-gray-800'}`} title="Mover Lienzo"><Hand className="w-5 h-5" /></button>
+                     
                      <div className="h-px w-8 bg-gray-700"></div>
-                     <button onClick={() => importToCanvasRef.current?.click()} className="p-3 text-gray-400 hover:text-white"><ImagePlus className="w-5 h-5" /><input ref={importToCanvasRef} type="file" accept="image/*" className="hidden" onChange={handleImportToCanvas} /></button>
+                     <button onClick={() => importToCanvasRef.current?.click()} className="p-3 text-gray-400 hover:text-white" title="Importar Imagen"><ImagePlus className="w-5 h-5" /><input ref={importToCanvasRef} type="file" accept="image/*" className="hidden" onChange={handleImportToCanvas} /></button>
+                     
                      <div className="h-px w-8 bg-gray-700"></div>
-                     <button onDoubleClick={() => setShowExtendedPalette(true)} className="w-10 h-10 rounded-full border-4 border-gray-700" style={{backgroundColor: selectedColor}} />
+                     <div className="flex flex-col items-center space-y-2">
+                        <div className="relative group">
+                            <input type="color" value={selectedColor} onChange={e => setSelectedColor(e.target.value)} className="w-10 h-10 rounded-full border-2 border-gray-700 bg-transparent cursor-pointer overflow-hidden p-0" />
+                        </div>
+                        <input type="text" value={selectedColor.toUpperCase()} onChange={e => setSelectedColor(e.target.value)} className="w-16 bg-gray-800 border border-gray-700 rounded text-[9px] text-white text-center py-1 font-mono outline-none focus:border-blue-500" />
+                        <button onClick={() => toggleFavorite(selectedColor)} className={`p-1.5 rounded transition-colors ${favorites.includes(selectedColor) ? 'text-yellow-400 bg-yellow-400/10' : 'text-gray-600 hover:text-gray-400'}`}>
+                            <Star className="w-4 h-4 fill-current" />
+                        </button>
+                     </div>
+
                      <div className="h-px w-8 bg-gray-700"></div>
-                     <button onClick={() => setPixelSize(p => Math.min(100, p + 5))} className="p-2 text-gray-400"><ZoomIn className="w-4 h-4" /></button>
-                     <button onClick={() => setPixelSize(p => Math.max(2, p - 5))} className="p-2 text-gray-400"><ZoomOut className="w-4 h-4" /></button>
+                     <button onClick={() => setPixelSize(p => Math.min(100, p + 5))} className="p-2 text-gray-400 hover:text-white"><ZoomIn className="w-4 h-4" /></button>
+                     <button onClick={() => setPixelSize(p => Math.max(2, p - 5))} className="p-2 text-gray-400 hover:text-white"><ZoomOut className="w-4 h-4" /></button>
                  </div>
 
                  <div className="flex-1 flex flex-col relative bg-[#1a1a1a] overflow-hidden">
-                      <div className="p-3 bg-gray-900 border-b border-gray-800 flex justify-center"><input type="text" value={drawName} onChange={e => setDrawName(e.target.value)} className="bg-transparent border-b border-gray-700 text-center text-sm font-bold text-white outline-none w-48" /></div>
+                      <div className="p-3 bg-gray-900 border-b border-gray-800 flex justify-between items-center px-6">
+                        <input type="text" value={drawName} onChange={e => setDrawName(e.target.value)} className="bg-transparent border-b border-gray-700 text-sm font-bold text-white outline-none w-48 focus:border-blue-500 transition-colors" />
+                        
+                        <div className="flex items-center space-x-2">
+                            {selection && (
+                                <button onClick={() => { if(floatingPixels) commitFloatingPixels(); else setSelection(null); }} className="px-3 py-1 bg-gray-800 hover:bg-gray-700 text-[10px] text-gray-300 rounded border border-gray-700">Deshacer Selección</button>
+                            )}
+                            <div className="text-[10px] text-gray-500 font-mono">Zoom: {Math.round((pixelSize/20)*100)}%</div>
+                        </div>
+                      </div>
+
                       <div className="flex-1 relative overflow-hidden" onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerLeave={handlePointerUp}>
                           <div 
                               className="absolute bg-white select-none touch-none"
@@ -500,26 +611,76 @@ export const AssetManagerModal: React.FC<AssetManagerModalProps> = ({
                                   backgroundImage: 'linear-gradient(45deg, #2a2a2a 25%, transparent 25%), linear-gradient(-45deg, #2a2a2a 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #2a2a2a 75%), linear-gradient(-45deg, transparent 75%, #2a2a2a 75%)',
                                   backgroundSize: `${pixelSize * 2}px ${pixelSize * 2}px`,
                                   backgroundColor: '#111',
-                                  cursor: currentTool === 'HAND' ? 'grab' : 'crosshair'
+                                  cursor: currentTool === 'HAND' ? 'grab' : (currentTool === 'SELECT' ? (selection ? 'move' : 'crosshair') : 'crosshair')
                               }}
                           >
                               {pixels.map((color, i) => (
                                   <div key={i} style={{ backgroundColor: color }} className="w-full h-full border-[0.1px] border-white/5" onPointerDown={(e) => handlePointerDown(e, i)} />
                               ))}
+
+                              {/* Selection Overlay */}
+                              {selection && (
+                                  <div 
+                                    className="absolute border-2 border-dashed border-blue-400 pointer-events-none z-10"
+                                    style={{
+                                        left: Math.min(selection.x1, selection.x2) * pixelSize,
+                                        top: Math.min(selection.y1, selection.y2) * pixelSize,
+                                        width: (Math.abs(selection.x1 - selection.x2) + 1) * pixelSize,
+                                        height: (Math.abs(selection.y1 - selection.y2) + 1) * pixelSize,
+                                        backgroundColor: 'rgba(59, 130, 246, 0.1)'
+                                    }}
+                                  >
+                                      {/* Floating Pixels during Move */}
+                                      {floatingPixels && (
+                                          <div className="relative w-full h-full">
+                                              {floatingPixels.map((p, idx) => (
+                                                  <div key={idx} style={{ 
+                                                      position: 'absolute',
+                                                      left: p.dx * pixelSize,
+                                                      top: p.dy * pixelSize,
+                                                      width: pixelSize,
+                                                      height: pixelSize,
+                                                      backgroundColor: p.color
+                                                  }} />
+                                              ))}
+                                          </div>
+                                      )}
+                                  </div>
+                              )}
                           </div>
                       </div>
-                      <div className="absolute bottom-6 right-6"><button onClick={handleSaveDrawing} className="bg-green-600 px-6 py-3 rounded-full font-bold shadow-lg flex items-center space-x-2 transition-transform active:scale-95"><Save className="w-5 h-5" /><span>Guardar Sprite</span></button></div>
+
+                      {/* Favorites & Palette Bar */}
+                      <div className="bg-gray-900 border-t border-gray-800 p-2 overflow-x-auto flex items-center space-x-4 shrink-0">
+                          <div className="flex items-center space-x-1 shrink-0 px-2 border-r border-gray-800 mr-2">
+                             <Star className="w-3 h-3 text-yellow-500 mr-1" />
+                             {favorites.map((c, i) => (
+                                 <button key={i} style={{backgroundColor: c}} onClick={() => setSelectedColor(c)} className={`w-6 h-6 rounded-full border border-black/20 ${selectedColor === c ? 'ring-2 ring-white' : ''}`} />
+                             ))}
+                          </div>
+                          <div className="flex items-center space-x-1">
+                             <Palette className="w-3 h-3 text-gray-500 mr-1" />
+                             {EXTENDED_PALETTE.slice(0, 30).map((c, i) => (
+                                 <button key={i} style={{backgroundColor: c}} onClick={() => setSelectedColor(c)} className={`w-5 h-5 rounded-sm border border-black/20 ${selectedColor === c ? 'ring-1 ring-white' : ''}`} />
+                             ))}
+                             <button onClick={() => setShowExtendedPalette(true)} className="px-2 text-[10px] text-blue-400 hover:text-white transition-colors">Ver Más...</button>
+                          </div>
+                      </div>
+
+                      <div className="absolute bottom-16 right-6 flex space-x-3">
+                          <button onClick={handleSaveDrawing} className="bg-green-600 hover:bg-green-500 px-6 py-3 rounded-full font-bold shadow-xl flex items-center space-x-2 transition-all transform active:scale-95"><Save className="w-5 h-5" /><span>Guardar Sprite</span></button>
+                      </div>
                  </div>
             </div>
         )}
 
         {showExtendedPalette && (
-            <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center" onClick={() => setShowExtendedPalette(false)}>
+            <div className="absolute inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center" onClick={() => setShowExtendedPalette(false)}>
                 <div className="bg-gray-800 border border-gray-600 p-5 rounded-2xl shadow-2xl w-[90%] max-w-md" onClick={e => e.stopPropagation()}>
-                    <div className="flex justify-between items-center mb-4"><h4 className="font-bold text-white">Paleta</h4><button onClick={() => setShowExtendedPalette(false)} className="text-gray-400"><X className="w-5 h-5"/></button></div>
-                    <div className="grid grid-cols-10 gap-1 max-h-60 overflow-y-auto pr-1">
+                    <div className="flex justify-between items-center mb-4"><h4 className="font-bold text-white">Paleta Completa</h4><button onClick={() => setShowExtendedPalette(false)} className="text-gray-400 hover:text-white"><X className="w-5 h-5"/></button></div>
+                    <div className="grid grid-cols-10 gap-1 max-h-60 overflow-y-auto pr-1 custom-scrollbar">
                          {EXTENDED_PALETTE.map((c, idx) => (
-                             <button key={idx} style={{backgroundColor: c}} onClick={() => { setSelectedColor(c); if(currentTool === 'ERASER') setCurrentTool('BRUSH'); setShowExtendedPalette(false); }} className={`aspect-square rounded-sm border border-black/20 ${selectedColor === c ? 'ring-2 ring-white' : ''}`} />
+                             <button key={idx} style={{backgroundColor: c}} onClick={() => { setSelectedColor(c); if(currentTool === 'ERASER') setCurrentTool('BRUSH'); setShowExtendedPalette(false); }} className={`aspect-square rounded-sm border border-black/20 ${selectedColor === c ? 'ring-2 ring-white' : ''} hover:scale-110 transition-transform`} />
                          ))}
                     </div>
                 </div>
