@@ -36,7 +36,7 @@ const DEFAULT_MOBILE_CONTROLS: MobileControlsConfig = {
     color: '#ffffff'
 };
 
-// Helper to create object
+// Helper to create object - UPDATED TO 32px
 const createInitialObject = (type: ObjectType, count: number): GameObject => {
   const base: Partial<GameObject> = {
     id: crypto.randomUUID(),
@@ -55,17 +55,17 @@ const createInitialObject = (type: ObjectType, count: number): GameObject => {
 
   switch (type) {
     case ObjectType.TEXT:
-      return { ...base, name: 'Texto Nuevo', type: ObjectType.TEXT, x: 0, y: 0, width: 150, height: 50, color: '#ffffff' } as GameObject;
+      return { ...base, name: 'Texto Nuevo', type: ObjectType.TEXT, x: 0, y: 0, width: 120, height: 32, color: '#ffffff' } as GameObject;
     case ObjectType.PLAYER:
-       return { ...base, name: `Jugador ${count}`, type: ObjectType.PLAYER, x: 0, y: 0, width: 64, height: 64, color: '#22c55e' } as GameObject;
+       return { ...base, name: `Jugador ${count}`, type: ObjectType.PLAYER, x: 0, y: 0, width: 32, height: 32, color: '#22c55e' } as GameObject;
     case ObjectType.ENEMY:
-      return { ...base, name: `Enemigo ${count}`, type: ObjectType.ENEMY, x: 0, y: 0, width: 64, height: 64, color: '#ef4444' } as GameObject;
+      return { ...base, name: `Enemigo ${count}`, type: ObjectType.ENEMY, x: 0, y: 0, width: 32, height: 32, color: '#ef4444' } as GameObject;
     case ObjectType.TILEMAP:
         return { ...base, name: `Mapa ${count}`, type: ObjectType.TILEMAP, x: 0, y: 0, width: 320, height: 320, color: 'transparent', tilemap: { tileSize: 32, tiles: {} } } as GameObject;
     case ObjectType.UI_BUTTON:
-        return { ...base, name: `Botón ${count}`, type: ObjectType.UI_BUTTON, x: 0, y: 0, width: 64, height: 64, color: '#f59e0b', isGui: true, isObstacle: false } as GameObject;
+        return { ...base, name: `Botón ${count}`, type: ObjectType.UI_BUTTON, x: 0, y: 0, width: 32, height: 32, color: '#f59e0b', isGui: true, isObstacle: false } as GameObject;
     default:
-      return { ...base, name: `Sprite ${count}`, type: ObjectType.SPRITE, x: 0, y: 0, width: 64, height: 64, color: '#3b82f6', isObstacle: true } as GameObject;
+      return { ...base, name: `Sprite ${count}`, type: ObjectType.SPRITE, x: 0, y: 0, width: 32, height: 32, color: '#3b82f6', isObstacle: true } as GameObject;
   }
 };
 
@@ -99,8 +99,8 @@ export const App: React.FC = () => {
   const [dragProxy, setDragProxy] = useState<{ obj: GameObject, x: number, y: number } | null>(null);
   const [showGrid, setShowGrid] = useState(false);
   const [gridSize, setGridSize] = useState(32);
-  const [viewPos, setViewPos] = useState({ x: 0, y: 0 }); // Track view pos here for drop math
-  const [zoom, setZoom] = useState(0.8); // Track zoom here too
+  const [viewPos, setViewPos] = useState({ x: 0, y: 0 }); 
+  const [zoom, setZoom] = useState(0.8); 
 
   const [canvasConfig, setCanvasConfig] = useState<CanvasConfig>({ 
       width: 800, 
@@ -156,19 +156,24 @@ export const App: React.FC = () => {
       const handleGlobalUp = (e: PointerEvent) => {
           const stageArea = document.getElementById('koda-stage-area');
           if (stageArea && dragProxy) {
-              const rect = stageArea.getBoundingClientRect();
+              // PRECISE COORDINATE MATH
+              // 1. Center of viewport (relative to which we translate in Canvas.tsx)
+              const cx = window.innerWidth / 2;
+              const cy = window.innerHeight / 2;
               
-              // World position calculation
-              // 1. Center of the screen where viewPos is applied
-              const centerX = rect.left + rect.width / 2;
-              const centerY = rect.top + rect.height / 2;
-              
-              // 2. Relative to center, taking zoom and view translation into account
-              const dropX = (e.clientX - centerX) / zoom - viewPos.x;
-              const dropY = (e.clientY - centerY) / zoom - viewPos.y;
+              // 2. Relative distance from center, including view pan and zoom
+              // Canvas.tsx does: translate(viewPos.x * zoom, viewPos.y * zoom) scale(zoom)
+              const relX = (e.clientX - cx) / zoom - viewPos.x;
+              const relY = (e.clientY - cy) / zoom - viewPos.y;
 
-              // Check if release is within or reasonably close to stage bounds
-              // For simplicity, we drop it regardless if we detect the stage area was the target
+              // 3. Coordinate translation: The Game Box is centered at world (0,0) via translate(-50%, -50%)
+              // So top-left of the box is at -width/2, -height/2
+              const worldW = currentScene?.width || canvasConfig.width;
+              const worldH = currentScene?.height || canvasConfig.height;
+
+              const dropX = relX + (worldW / 2);
+              const dropY = relY + (worldH / 2);
+
               handleObjectDropOnCanvas(dragProxy.obj.id, dropX, dropY); 
           }
           setDragProxy(null);
@@ -179,7 +184,7 @@ export const App: React.FC = () => {
           window.removeEventListener('pointermove', handleGlobalMove);
           window.removeEventListener('pointerup', handleGlobalUp);
       };
-  }, [dragProxy, zoom, viewPos, canvasConfig]);
+  }, [dragProxy, zoom, viewPos, canvasConfig, currentScene]);
 
   const handleStartDragFromLibrary = (e: React.PointerEvent, obj: GameObject) => {
       setActivePanel('none');
@@ -211,7 +216,7 @@ export const App: React.FC = () => {
 
   useEffect(() => {
       const handleKeyDown = (e: KeyboardEvent) => {
-          if (isAssetManagerOpen) return; // Let asset manager handle its own
+          if (isAssetManagerOpen) return; 
           if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
               e.preventDefault();
               performUndo();
@@ -350,7 +355,6 @@ export const App: React.FC = () => {
       recordHistory();
       const targetLayerId = activeLayerId || layers[layers.length - 1].id;
       
-      // Apply Grid Snapping if enabled
       let finalX = x - (prototype.width / 2);
       let finalY = y - (prototype.height / 2);
       

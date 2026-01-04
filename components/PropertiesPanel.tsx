@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { GameObject, ObjectType, BehaviorType, Behavior, AnimationClip, Variable, VariableType, Asset, EditorTool } from '../types';
-/* Removed WallIcon which was not exported from ./Icons */
 import { Layers, Move, Type, MousePointer2, X, Zap, Trash2, Activity, RotateCw, Plus, BrickWall, Compass, Crosshair, Magnet, Film, ImagePlus, ChevronDown, ChevronUp, Grid3x3, Hash, ToggleLeft, Variable as VariableIcon, Link2, Grid, Paintbrush, Eraser, MonitorSmartphone, Play, Settings, CheckSquare, Square, Code, Box, Scissors, Smartphone, List, Droplets, Star, Palette } from './Icons';
 
 interface PropertiesPanelProps {
@@ -59,7 +58,6 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
   className = ""
 }) => {
   const [showBehaviorMenu, setShowBehaviorMenu] = useState(false);
-  const [expandedAnim, setExpandedAnim] = useState<string | null>(null);
   const [newVarName, setNewVarName] = useState('');
   const [newVarType, setNewVarType] = useState<VariableType>('NUMBER');
 
@@ -102,22 +100,34 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
     let name = "";
     
     switch(type) {
-      case BehaviorType.PLATFORMER: name = "Plataforma"; defaultProps = { gravity: 1200, jumpForce: 550, maxSpeed: 250 }; break;
-      case BehaviorType.TOPDOWN: name = "Movimiento Top-Down"; defaultProps = { speed: 200 }; break;
+      case BehaviorType.PLATFORMER: 
+        name = "Plataforma"; 
+        defaultProps = { 
+            gravity: 1200, jumpForce: 550, maxSpeed: 250,
+            animIdle: "", animWalk: "", animJump: "", animFall: "", animCrouch: ""
+        }; 
+        break;
+      case BehaviorType.TOPDOWN: 
+        name = "Movimiento Top-Down"; 
+        defaultProps = { 
+            speed: 200,
+            animIdle: "", animWalk: ""
+        }; 
+        break;
       case BehaviorType.PROJECTILE: name = "Proyectil"; defaultProps = { speed: 400 }; break;
       case BehaviorType.FOLLOW: name = "Perseguir (IA)"; defaultProps = { speed: 100, stopDistance: 5, targetId: "" }; break;
       case BehaviorType.ROTATE: name = "Rotación Continua"; defaultProps = { speed: 90 }; break;
       case BehaviorType.HEALTH: name = "Salud y Daño"; defaultProps = { maxHealth: 3, currentHealth: 3, destroyOnZero: true }; break;
       case BehaviorType.GRID_LAYOUT: name = "Contenedor en Rejilla"; defaultProps = { columns: 4, padding: 10, slotWidth: 50, slotHeight: 50 }; break;
       case BehaviorType.TILT_CONTROL: name = "Control Inclinación"; defaultProps = { speed: 300 }; break;
-      case BehaviorType.ANIMATION: name = "Animador"; defaultProps = { animations: [{ id: 'anim-idle', name: 'Idle', frames: [], fps: 5, loop: true }] }; break;
+      case BehaviorType.ANIMATION: name = "Animador"; defaultProps = { animations: [{ id: crypto.randomUUID(), name: 'Idle', frames: [], fps: 5, loop: true }] }; break;
     }
     onUpdateObject(selectedObject.id, { behaviors: [...existing, { id: crypto.randomUUID(), type, name, properties: defaultProps }] });
     setShowBehaviorMenu(false);
   };
 
   const updateBehaviorProp = (behaviorId: string, prop: string, value: any) => {
-    const updated = selectedObject.behaviors.map(b => b.id === behaviorId ? { ...b, properties: { ...b.properties, [prop]: (typeof b.properties[prop] === 'number' ? parseFloat(value) : value) } } : b);
+    const updated = selectedObject.behaviors.map(b => b.id === behaviorId ? { ...b, properties: { ...b.properties, [prop]: (typeof b.properties[prop] === 'number' && typeof value !== 'object' ? parseFloat(value) : value) } } : b);
     onUpdateObject(selectedObject.id, { behaviors: updated });
   };
 
@@ -135,6 +145,34 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
       });
       onUpdateObject(selectedObject.id, { behaviors: updated, previewSpriteUrl: Array.isArray(result) ? result[0] : result });
   };
+
+  const handleAddNewAnimation = (behaviorId: string) => {
+      const behavior = selectedObject.behaviors.find(b => b.id === behaviorId);
+      if (!behavior) return;
+      const animations = [...(behavior.properties.animations || [])];
+      animations.push({ id: crypto.randomUUID(), name: 'Nueva Anim', frames: [], fps: 5, loop: true });
+      updateBehaviorProp(behaviorId, 'animations', animations);
+  };
+
+  const getFriendlyPropName = (key: string) => {
+      switch(key) {
+          case 'animIdle': return 'Anim. Reposo';
+          case 'animWalk': return 'Anim. Caminar';
+          case 'animJump': return 'Anim. Saltar';
+          case 'animFall': return 'Anim. Caer';
+          case 'animCrouch': return 'Anim. Agacharse';
+          case 'gravity': return 'Gravedad';
+          case 'jumpForce': return 'Fuerza Salto';
+          case 'maxSpeed': return 'Vel. Máxima';
+          case 'speed': return 'Velocidad';
+          default: return key;
+      }
+  };
+
+  // Get all animation names defined in the ANIMATION behavior
+  const animationNames = (selectedObject.behaviors || [])
+      .find(b => b.type === BehaviorType.ANIMATION)
+      ?.properties.animations?.map((a: AnimationClip) => a.name) || [];
 
   const activeBrushAsset = assets.find(a => a.url === activeBrushId);
 
@@ -228,28 +266,63 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                    
                    <div className="space-y-2">
                       {behavior.type === BehaviorType.ANIMATION && (
-                          <div className="space-y-2">
+                          <div className="space-y-3">
                              {(behavior.properties.animations as AnimationClip[]).map(anim => (
                                  <div key={anim.id} className="bg-gray-900/50 rounded border border-gray-700/50 p-2">
-                                     <div className="flex items-center justify-between mb-2">
-                                         <span className="text-[10px] font-bold text-gray-400 uppercase">{anim.name}</span>
-                                         <div className="flex items-center space-x-2">
-                                             <label className="text-[9px] text-gray-500">FPS</label>
-                                             <input type="number" value={anim.fps} onChange={e => updateBehaviorProp(behavior.id, 'animations', (behavior.properties.animations as AnimationClip[]).map(a => a.id === anim.id ? {...a, fps: parseInt(e.target.value)} : a))} className="w-8 bg-black rounded text-center text-[9px] text-white" />
+                                     <div className="flex items-center justify-between mb-2 gap-2">
+                                         <input 
+                                            type="text" 
+                                            value={anim.name} 
+                                            onChange={e => updateBehaviorProp(behavior.id, 'animations', (behavior.properties.animations as AnimationClip[]).map(a => a.id === anim.id ? {...a, name: e.target.value} : a))} 
+                                            className="flex-1 bg-gray-950 border border-gray-800 rounded px-2 py-0.5 text-[10px] font-bold text-gray-300 uppercase outline-none focus:border-orange-500" 
+                                            placeholder="Nombre Anim"
+                                         />
+                                         <div className="flex items-center space-x-2 shrink-0">
+                                             <label className="text-[9px] text-gray-500 uppercase">FPS</label>
+                                             <input type="number" value={anim.fps} onChange={e => updateBehaviorProp(behavior.id, 'animations', (behavior.properties.animations as AnimationClip[]).map(a => a.id === anim.id ? {...a, fps: parseInt(e.target.value)} : a))} className="w-8 bg-black rounded text-center text-[10px] text-white" />
+                                             <button onClick={() => updateBehaviorProp(behavior.id, 'animations', (behavior.properties.animations as AnimationClip[]).filter(a => a.id !== anim.id))} className="p-1 text-gray-600 hover:text-red-400"><Trash2 className="w-3 h-3" /></button>
                                          </div>
                                      </div>
                                      <div className="flex flex-wrap gap-1">
-                                         {anim.frames.map(f => <img key={f.id} src={f.imageUrl} className="w-8 h-8 bg-black rounded object-contain image-pixelated" />)}
-                                         <button onClick={() => onOpenAssetManager((url) => handleAddFrames(behavior.id, anim.id, url), 'GALLERY')} className="w-8 h-8 border border-dashed border-gray-600 rounded flex items-center justify-center text-gray-500"><Plus className="w-3 h-3" /></button>
+                                         {anim.frames.map(f => (
+                                             <div key={f.id} className="relative group/frame">
+                                                 <img src={f.imageUrl} className="w-8 h-8 bg-black rounded object-contain image-pixelated border border-gray-800" />
+                                                 <button 
+                                                    onClick={() => updateBehaviorProp(behavior.id, 'animations', (behavior.properties.animations as AnimationClip[]).map(a => a.id === anim.id ? {...a, frames: a.frames.filter(fr => fr.id !== f.id)} : a))}
+                                                    className="absolute -top-1 -right-1 bg-red-600 text-white rounded-full p-0.5 opacity-0 group-hover/frame:opacity-100 transition-opacity"
+                                                 >
+                                                     <X className="w-2 h-2" />
+                                                 </button>
+                                             </div>
+                                         ))}
+                                         <button onClick={() => onOpenAssetManager((url) => handleAddFrames(behavior.id, anim.id, url), 'GALLERY')} className="w-8 h-8 border border-dashed border-gray-600 rounded flex items-center justify-center text-gray-500 hover:text-white hover:border-gray-400 transition-all"><Plus className="w-3 h-3" /></button>
                                      </div>
                                  </div>
                              ))}
+                             <button 
+                                onClick={() => handleAddNewAnimation(behavior.id)}
+                                className="w-full py-1.5 border border-dashed border-gray-700 rounded-lg text-[10px] font-bold text-gray-500 hover:text-orange-400 hover:border-orange-500 transition-all flex items-center justify-center space-x-1"
+                             >
+                                 <Plus className="w-3 h-3" />
+                                 <span>Añadir Animación</span>
+                             </button>
                           </div>
                       )}
                       {behavior.type !== BehaviorType.ANIMATION && Object.entries(behavior.properties).map(([k, v]) => (
                           <div key={k} className="flex items-center justify-between">
-                              <label className="text-[9px] text-gray-500 uppercase">{k}</label>
-                              {typeof v === 'boolean' ? (
+                              <label className="text-[9px] text-gray-500 uppercase">{getFriendlyPropName(k)}</label>
+                              {k.startsWith('anim') ? (
+                                  <select 
+                                      value={v as string} 
+                                      onChange={(e) => updateBehaviorProp(behavior.id, k, e.target.value)} 
+                                      className="bg-gray-950 border border-gray-700 rounded px-1.5 py-0.5 text-[10px] text-white w-24 outline-none focus:border-blue-500"
+                                  >
+                                      <option value="">-- Ninguna --</option>
+                                      {animationNames.map(name => (
+                                          <option key={name} value={name}>{name}</option>
+                                      ))}
+                                  </select>
+                              ) : typeof v === 'boolean' ? (
                                   <button onClick={() => updateBehaviorProp(behavior.id, k, !v)} className={`text-[9px] px-2 py-0.5 rounded font-bold ${v ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'}`}>{v ? 'SI' : 'NO'}</button>
                               ) : (
                                   <input type={typeof v === 'number' ? 'number' : 'text'} value={v as any} onChange={(e) => updateBehaviorProp(behavior.id, k, e.target.value)} className="bg-gray-950 border border-gray-700 rounded px-1.5 py-0.5 text-[10px] text-white w-24 text-right" />
