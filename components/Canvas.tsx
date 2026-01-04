@@ -4,7 +4,7 @@ import { GameObject, ObjectType, EditorTool, CanvasConfig, Layer, Asset, Scene }
 import { ZoomIn, ZoomOut, ArrowRight, ArrowDown, Video, MonitorSmartphone, Grid3x3, Magnet } from './Icons';
 
 interface CanvasProps {
-  scene: Scene; // Use full scene object instead of just objects
+  scene: Scene; 
   objects: GameObject[];
   layers: Layer[];
   selectedObjectId: string | null;
@@ -25,8 +25,8 @@ interface CanvasProps {
   onSelectObject: (id: string | null) => void;
   onUpdateObject: (id: string, updates: Partial<GameObject>) => void;
   onEditObject: (obj: GameObject) => void;
-  // Drop is now handled globally in App.tsx via DOM calc, but we keep the prop interface compatible if needed
   onDropObject: (id: string, x: number, y: number) => void;
+  onViewChange?: (viewPos: { x: number, y: number }, zoom: number) => void;
 }
 
 type DragMode = 'NONE' | 'MOVE_ALL' | 'MOVE_X' | 'MOVE_Y' | 'RESIZE_X' | 'RESIZE_Y' | 'PAN_CANVAS';
@@ -49,13 +49,19 @@ export const Canvas: React.FC<CanvasProps> = ({
   onSelectObject,
   onUpdateObject,
   onEditObject,
-  onDropObject
+  onDropObject,
+  onViewChange
 }) => {
   const [zoom, setZoom] = useState(0.8);
   const [viewPos, setViewPos] = useState({ x: 0, y: 0 });
   const [isGridMenuOpen, setIsGridMenuOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const gameBoxRef = useRef<HTMLDivElement>(null); 
+
+  // Sync zoom and view changes to parent (essential for drop logic)
+  useEffect(() => {
+    onViewChange?.(viewPos, zoom);
+  }, [viewPos, zoom, onViewChange]);
 
   // Determine World Size (fallbacks to canvas config if scene not set)
   const worldWidth = scene.width || canvasConfig.width;
@@ -153,8 +159,8 @@ export const Canvas: React.FC<CanvasProps> = ({
 
       if (effectiveMode === 'PAN_CANVAS') {
         setViewPos({
-            x: startViewX + deltaX,
-            y: startViewY + deltaY
+            x: startViewX + deltaX / zoom, // Faster pan when zoomed in
+            y: startViewY + deltaY / zoom
         });
         return;
       }
@@ -204,8 +210,6 @@ export const Canvas: React.FC<CanvasProps> = ({
     e.stopPropagation();
     onEditObject(obj);
   };
-
-  // --- RENDER HELPERS ---
 
   const renderGizmos = (obj: GameObject) => {
     if (currentTool === EditorTool.HAND || currentTool === EditorTool.BRUSH || currentTool === EditorTool.ERASER) return null;
@@ -456,7 +460,7 @@ export const Canvas: React.FC<CanvasProps> = ({
            style={{
              left: '50%',
              top: '50%',
-             transform: `translate(${viewPos.x}px, ${viewPos.y}px) scale(${zoom})`,
+             transform: `translate(${viewPos.x * zoom}px, ${viewPos.y * zoom}px) scale(${zoom})`,
              transformOrigin: 'center center'
            }}
         >
@@ -471,7 +475,8 @@ export const Canvas: React.FC<CanvasProps> = ({
                  width: `${worldWidth}px`, // USE WORLD WIDTH
                  height: `${worldHeight}px`, // USE WORLD HEIGHT
                  backgroundColor: scene.backgroundColor || '#000000',
-                 border: '1px solid #4b5563'
+                 border: '1px solid #4b5563',
+                 transform: 'translate(-50%, -50%)' // Center the box relative to pivot
              }}
           >
               <div className="absolute inset-0 pointer-events-none opacity-20" 
@@ -524,8 +529,8 @@ export const Canvas: React.FC<CanvasProps> = ({
               <div 
                 className="absolute pointer-events-none z-[60]"
                 style={{
-                    left: cameraRect.x,
-                    top: cameraRect.y,
+                    left: cameraRect.x - worldWidth/2,
+                    top: cameraRect.y - worldHeight/2,
                     width: cameraRect.w,
                     height: cameraRect.h,
                     border: '4px solid #000000', // Thick black border

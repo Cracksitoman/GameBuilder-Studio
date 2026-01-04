@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Asset } from '../types';
-import { X, UploadCloud, Paintbrush, Grid3x3, Trash2, Eraser, Save, PaintBucket, Check, Palette, ChevronLeft, Download, ZoomIn, ZoomOut, Plus, Maximize, Volume2, Music, Scissors, ImagePlus, Hand, Star, MousePointerSquareDashed } from './Icons';
+import { X, UploadCloud, Paintbrush, Grid3x3, Trash2, Eraser, Save, PaintBucket, Check, Palette, ChevronLeft, Download, ZoomIn, ZoomOut, Plus, Maximize, Volume2, Music, Scissors, ImagePlus, Hand, Star, MousePointerSquareDashed, Undo, Redo } from './Icons';
 
 interface AssetManagerModalProps {
   isOpen: boolean;
@@ -64,6 +64,10 @@ export const AssetManagerModal: React.FC<AssetManagerModalProps> = ({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [favorites, setFavorites] = useState<string[]>(['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff']);
   
+  // History State
+  const [past, setPast] = useState<string[][]>([]);
+  const [future, setFuture] = useState<string[][]>([]);
+
   // Selection State
   const [selection, setSelection] = useState<{ x1: number, y1: number, x2: number, y2: number } | null>(null);
   const [isSelecting, setIsSelecting] = useState(false);
@@ -94,10 +98,50 @@ export const AssetManagerModal: React.FC<AssetManagerModalProps> = ({
           setCanvasOffset({ x: 0, y: 0 });
           setSelection(null);
           setFloatingPixels(null);
+          setPast([]);
+          setFuture([]);
       }
   }, [isOpen, initialMode]);
 
+  // Keyboard Shortcuts for Undo/Redo
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+        if (mode !== 'DRAW' || !isOpen) return;
+        if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+            e.preventDefault();
+            performUndo();
+        }
+        if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.shiftKey && e.key === 'z'))) {
+            e.preventDefault();
+            performRedo();
+        }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [mode, isOpen, past, future, pixels]);
+
   const visibleAssets = assets.filter(a => allowedTypes.includes(a.type));
+
+  const recordHistory = () => {
+    setPast(prev => [...prev, [...pixels]]);
+    setFuture([]);
+  };
+
+  const performUndo = () => {
+    if (past.length === 0) return;
+    const prev = past[past.length - 1];
+    setFuture(f => [[...pixels], ...f]);
+    setPixels(prev);
+    setPast(p => p.slice(0, p.length - 1));
+  };
+
+  const performRedo = () => {
+    if (future.length === 0) return;
+    const next = future[0];
+    setPast(p => [...p, [...pixels]]);
+    setPixels(next);
+    setFuture(f => f.slice(1));
+  };
 
   const handleInitNewDrawing = () => setMode('SIZE_SELECT');
 
@@ -112,6 +156,8 @@ export const AssetManagerModal: React.FC<AssetManagerModalProps> = ({
       setShowExtendedPalette(false);
       setSelection(null);
       setFloatingPixels(null);
+      setPast([]);
+      setFuture([]);
   };
 
   const loadSpriteForEditing = (asset: Asset) => {
@@ -145,11 +191,14 @@ export const AssetManagerModal: React.FC<AssetManagerModalProps> = ({
           setMode('DRAW');
           setSelection(null);
           setFloatingPixels(null);
+          setPast([]);
+          setFuture([]);
       };
   };
 
   const commitFloatingPixels = () => {
     if (!floatingPixels || !selection) return;
+    recordHistory();
     const newPixels = [...pixels];
     const sx = Math.min(selection.x1, selection.x2);
     const sy = Math.min(selection.y1, selection.y2);
@@ -165,7 +214,7 @@ export const AssetManagerModal: React.FC<AssetManagerModalProps> = ({
     setSelection(null);
   };
 
-  const paintPixel = (index: number) => {
+  const paintPixel = (index: number, forceColor?: string) => {
     if (index < 0 || index >= pixels.length) return;
     if (currentTool === 'SELECT') return;
 
@@ -174,8 +223,9 @@ export const AssetManagerModal: React.FC<AssetManagerModalProps> = ({
         const newPixels = [...pixels];
         const stack = [index];
         const visited = new Set<number>();
-        const replacement = selectedColor;
+        const replacement = forceColor || selectedColor;
         if (targetColor === replacement) return;
+        recordHistory();
         while(stack.length > 0) {
             const idx = stack.pop()!;
             if (visited.has(idx)) continue;
@@ -192,8 +242,9 @@ export const AssetManagerModal: React.FC<AssetManagerModalProps> = ({
         }
         setPixels(newPixels);
     } else {
-        const newColor = currentTool === 'ERASER' ? 'transparent' : selectedColor;
+        const newColor = currentTool === 'ERASER' ? 'transparent' : (forceColor || selectedColor);
         if (pixels[index] === newColor) return;
+        // Optimization: only record history on the start of a stroke (handled in handlePointerDown)
         const newPixels = [...pixels];
         newPixels[index] = newColor;
         setPixels(newPixels);
@@ -234,6 +285,7 @@ export const AssetManagerModal: React.FC<AssetManagerModalProps> = ({
                       const ex = Math.max(selection.x1, selection.x2);
                       const ey = Math.max(selection.y1, selection.y2);
                       const newPixels = [...pixels];
+                      recordHistory();
                       for(let j = sy; j <= ey; j++) {
                           for(let i = sx; i <= ex; i++) {
                               const idx = j * gridSize + i;
@@ -256,6 +308,7 @@ export const AssetManagerModal: React.FC<AssetManagerModalProps> = ({
           }
           
           if (currentTool !== 'HAND' && index !== null) {
+              if (currentTool !== 'BUCKET') recordHistory(); // Bucket records its own to handle empty fills
               setIsDrawing(true);
               paintPixel(index);
           }
@@ -348,6 +401,7 @@ export const AssetManagerModal: React.FC<AssetManagerModalProps> = ({
       reader.onload = (event) => {
           const img = new Image();
           img.onload = () => {
+              recordHistory();
               const canvas = document.createElement('canvas');
               canvas.width = gridSize; canvas.height = gridSize;
               const ctx = canvas.getContext('2d');
@@ -566,6 +620,12 @@ export const AssetManagerModal: React.FC<AssetManagerModalProps> = ({
                      <button onClick={() => setCurrentTool('ERASER')} className={`p-3 rounded-xl transition-colors ${currentTool === 'ERASER' ? 'bg-red-600 text-white' : 'text-gray-400 hover:bg-gray-800'}`} title="Borrador"><Eraser className="w-5 h-5" /></button>
                      <button onClick={() => setCurrentTool('HAND')} className={`p-3 rounded-xl transition-colors ${currentTool === 'HAND' ? 'bg-orange-600 text-white' : 'text-gray-400 hover:bg-gray-800'}`} title="Mover Lienzo"><Hand className="w-5 h-5" /></button>
                      
+                     <div className="h-px w-8 bg-gray-700"></div>
+                     <div className="flex flex-col space-y-2">
+                        <button onClick={performUndo} disabled={past.length === 0} className={`p-2 rounded ${past.length > 0 ? 'text-white hover:bg-gray-800' : 'text-gray-600'}`} title="Deshacer (Ctrl+Z)"><Undo className="w-5 h-5" /></button>
+                        <button onClick={performRedo} disabled={future.length === 0} className={`p-2 rounded ${future.length > 0 ? 'text-white hover:bg-gray-800' : 'text-gray-600'}`} title="Rehacer (Ctrl+Y)"><Redo className="w-5 h-5" /></button>
+                     </div>
+
                      <div className="h-px w-8 bg-gray-700"></div>
                      <button onClick={() => importToCanvasRef.current?.click()} className="p-3 text-gray-400 hover:text-white" title="Importar Imagen"><ImagePlus className="w-5 h-5" /><input ref={importToCanvasRef} type="file" accept="image/*" className="hidden" onChange={handleImportToCanvas} /></button>
                      

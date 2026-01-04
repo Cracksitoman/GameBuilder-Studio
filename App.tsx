@@ -57,15 +57,15 @@ const createInitialObject = (type: ObjectType, count: number): GameObject => {
     case ObjectType.TEXT:
       return { ...base, name: 'Texto Nuevo', type: ObjectType.TEXT, x: 0, y: 0, width: 150, height: 50, color: '#ffffff' } as GameObject;
     case ObjectType.PLAYER:
-       return { ...base, name: `Jugador ${count}`, type: ObjectType.PLAYER, x: 0, y: 0, width: 32, height: 32, color: '#22c55e' } as GameObject;
+       return { ...base, name: `Jugador ${count}`, type: ObjectType.PLAYER, x: 0, y: 0, width: 64, height: 64, color: '#22c55e' } as GameObject;
     case ObjectType.ENEMY:
-      return { ...base, name: `Enemigo ${count}`, type: ObjectType.ENEMY, x: 0, y: 0, width: 32, height: 32, color: '#ef4444' } as GameObject;
+      return { ...base, name: `Enemigo ${count}`, type: ObjectType.ENEMY, x: 0, y: 0, width: 64, height: 64, color: '#ef4444' } as GameObject;
     case ObjectType.TILEMAP:
         return { ...base, name: `Mapa ${count}`, type: ObjectType.TILEMAP, x: 0, y: 0, width: 320, height: 320, color: 'transparent', tilemap: { tileSize: 32, tiles: {} } } as GameObject;
     case ObjectType.UI_BUTTON:
         return { ...base, name: `Botón ${count}`, type: ObjectType.UI_BUTTON, x: 0, y: 0, width: 64, height: 64, color: '#f59e0b', isGui: true, isObstacle: false } as GameObject;
     default:
-      return { ...base, name: `Sprite ${count}`, type: ObjectType.SPRITE, x: 0, y: 0, width: 50, height: 50, color: '#3b82f6', isObstacle: true } as GameObject;
+      return { ...base, name: `Sprite ${count}`, type: ObjectType.SPRITE, x: 0, y: 0, width: 64, height: 64, color: '#3b82f6', isObstacle: true } as GameObject;
   }
 };
 
@@ -99,6 +99,8 @@ export const App: React.FC = () => {
   const [dragProxy, setDragProxy] = useState<{ obj: GameObject, x: number, y: number } | null>(null);
   const [showGrid, setShowGrid] = useState(false);
   const [gridSize, setGridSize] = useState(32);
+  const [viewPos, setViewPos] = useState({ x: 0, y: 0 }); // Track view pos here for drop math
+  const [zoom, setZoom] = useState(0.8); // Track zoom here too
 
   const [canvasConfig, setCanvasConfig] = useState<CanvasConfig>({ 
       width: 800, 
@@ -153,11 +155,21 @@ export const App: React.FC = () => {
       };
       const handleGlobalUp = (e: PointerEvent) => {
           const stageArea = document.getElementById('koda-stage-area');
-          if (stageArea) {
+          if (stageArea && dragProxy) {
               const rect = stageArea.getBoundingClientRect();
-              if (e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom) {
-                  handleObjectDropOnCanvas(dragProxy.obj.id, 100, 100); 
-              }
+              
+              // World position calculation
+              // 1. Center of the screen where viewPos is applied
+              const centerX = rect.left + rect.width / 2;
+              const centerY = rect.top + rect.height / 2;
+              
+              // 2. Relative to center, taking zoom and view translation into account
+              const dropX = (e.clientX - centerX) / zoom - viewPos.x;
+              const dropY = (e.clientY - centerY) / zoom - viewPos.y;
+
+              // Check if release is within or reasonably close to stage bounds
+              // For simplicity, we drop it regardless if we detect the stage area was the target
+              handleObjectDropOnCanvas(dragProxy.obj.id, dropX, dropY); 
           }
           setDragProxy(null);
       };
@@ -167,7 +179,7 @@ export const App: React.FC = () => {
           window.removeEventListener('pointermove', handleGlobalMove);
           window.removeEventListener('pointerup', handleGlobalUp);
       };
-  }, [dragProxy, canvasConfig]);
+  }, [dragProxy, zoom, viewPos, canvasConfig]);
 
   const handleStartDragFromLibrary = (e: React.PointerEvent, obj: GameObject) => {
       setActivePanel('none');
@@ -199,6 +211,7 @@ export const App: React.FC = () => {
 
   useEffect(() => {
       const handleKeyDown = (e: KeyboardEvent) => {
+          if (isAssetManagerOpen) return; // Let asset manager handle its own
           if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
               e.preventDefault();
               performUndo();
@@ -210,7 +223,7 @@ export const App: React.FC = () => {
       };
       window.addEventListener('keydown', handleKeyDown);
       return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [past, future, scenes]);
+  }, [past, future, scenes, isAssetManagerOpen]);
 
 
   const updateCurrentScene = (updates: Partial<Scene>, skipHistory = false) => {
@@ -336,12 +349,22 @@ export const App: React.FC = () => {
       if (!prototype) return;
       recordHistory();
       const targetLayerId = activeLayerId || layers[layers.length - 1].id;
+      
+      // Apply Grid Snapping if enabled
+      let finalX = x - (prototype.width / 2);
+      let finalY = y - (prototype.height / 2);
+      
+      if (showGrid) {
+          finalX = Math.round(finalX / gridSize) * gridSize;
+          finalY = Math.round(finalY / gridSize) * gridSize;
+      }
+
       const newInstance: GameObject = {
           ...JSON.parse(JSON.stringify(prototype)), 
           id: crypto.randomUUID(), 
           prototypeId: prototype.id, 
-          x: Math.round(x - (prototype.width / 2)), 
-          y: Math.round(y - (prototype.height / 2)),
+          x: Math.round(finalX), 
+          y: Math.round(finalY),
           layerId: targetLayerId
       };
       setScenes(prev => prev.map(s => s.id === currentSceneId ? { ...s, objects: [...s.objects, newInstance] } : s));
@@ -514,6 +537,7 @@ export const App: React.FC = () => {
                                 onUpdateObject={handleUpdateObjectAnywhere} 
                                 onEditObject={(o) => setEditingObject(o)} 
                                 onDropObject={(id, x, y) => handleObjectDropOnCanvas(id, x, y)} 
+                                onViewChange={(pos, z) => { setViewPos(pos); setZoom(z); }}
                             />
                         )}
                     </div>
