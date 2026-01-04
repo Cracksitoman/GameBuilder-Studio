@@ -7,7 +7,7 @@ import {
     Move, Copy, MessageSquare, Vibrate, Navigation, Film, Settings, ChevronRight, Zap, RefreshCw,
     Activity, Crosshair, Volume2, Droplets, Maximize2, Palette, ChevronLeft, ArrowLeft, ArrowDown, Hash, 
     MapPin, Compass, Sun, ChevronDown, MousePointerClick, Sidebar, ChevronUp, List, RotateCw, Music, Sparkles,
-    User, Type
+    User, Type, Grid
 } from './Icons';
 
 interface BlockEditorProps {
@@ -18,7 +18,7 @@ interface BlockEditorProps {
     onUpdateObject: (id: string, updates: Partial<GameObject>) => void;
 }
 
-type BlockCategory = 'EVENTS' | 'MOTION' | 'LOOKS' | 'SOUND' | 'CONTROL' | 'DATA' | 'PHYSICS';
+type BlockCategory = 'EVENTS' | 'MOTION' | 'LOOKS' | 'SOUND' | 'CONTROL' | 'DATA' | 'PHYSICS' | 'SCENERY';
 
 // --- HELPER COMPONENTS ---
 
@@ -95,6 +95,7 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({ objects, scenes, libra
     ];
     const onlyLibraryObjects = library.map(o => ({ value: o.id, label: o.name }));
     const availableScenes = scenes.map(s => ({ value: s.id, label: s.name }));
+    const tilemapObjects = library.filter(o => o.type === ObjectType.TILEMAP).map(o => ({ value: o.id, label: o.name }));
 
     const getDefaultParams = (type: string) => {
         switch(type) {
@@ -119,6 +120,7 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({ objects, scenes, libra
             case 'DISTANCE_TO': return { targetId: onlyLibraryObjects[0]?.value || '', distance: 100, operator: 'LESS' };
             case 'SET_COLOR': return { color: '#ffffff' };
             case 'APPLY_FORCE': return { forceX: 0, forceY: -500 };
+            case 'SET_TILE': return { targetId: tilemapObjects[0]?.value || '', x: 0, y: 0, tileId: '' };
             default: return {};
         }
     };
@@ -277,6 +279,16 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({ objects, scenes, libra
             case 'CAMERA_SHAKE': return <div className="flex items-center space-x-1"><span>Agitar cámara int.</span><InlineInput type="number" value={safeParams.intensity} onChange={(v:any)=>onChange({intensity:v})} /></div>;
             case 'PLAY_SOUND': return <div className="flex items-center space-x-1"><span>Sonido ID</span><InlineInput width="w-20" value={safeParams.soundAssetId} onChange={(v:any)=>onChange({soundAssetId:v})} /></div>;
 
+            // --- SCENERY ---
+            case 'SET_TILE': return (
+                <div className="flex items-center space-x-1">
+                    <span>Fijar Tile en</span>
+                    <InlineSelect width="w-20" value={safeParams.targetId} onChange={(v:any)=>onChange({targetId:v})} options={tilemapObjects} />
+                    <span>X</span><InlineInput type="number" width="w-8" value={safeParams.x} onChange={(v:any)=>onChange({x:v})} />
+                    <span>Y</span><InlineInput type="number" width="w-8" value={safeParams.y} onChange={(v:any)=>onChange({y:v})} />
+                </div>
+            );
+
             // --- CONDITIONS ---
             case 'TOUCH_INTERACTION': return <div className="flex items-center space-x-2"><span>Al</span><InlineSelect width="w-24" value={safeParams.subtype} onChange={(v:any)=>onChange({subtype:v})} options={[{value:'CLICK', label:'Hacer Clic'},{value:'LONG_PRESS', label:'Mantener'},{value:'DRAG', label:'Arrastrar'}]} /></div>;
             case 'COLLISION': return <div className="flex items-center space-x-2"><span>Choca con</span><InlineSelect width="w-24" value={safeParams.targetId} onChange={(v:any)=>onChange({targetId:v})} options={onlyLibraryObjects} /></div>;
@@ -316,6 +328,7 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({ objects, scenes, libra
                             <button onClick={() => setActiveCategory('EVENTS')} className={`p-3 rounded-lg ${activeCategory === 'EVENTS' ? 'bg-yellow-600 text-white' : 'text-gray-500 hover:text-white hover:bg-gray-700'}`} title="Eventos"><Zap className="w-6 h-6" /></button>
                             <button onClick={() => setActiveCategory('MOTION')} className={`p-3 rounded-lg ${activeCategory === 'MOTION' ? 'bg-blue-600 text-white' : 'text-gray-500 hover:text-white hover:bg-gray-700'}`} title="Movimiento"><Move className="w-6 h-6" /></button>
                             <button onClick={() => setActiveCategory('LOOKS')} className={`p-3 rounded-lg ${activeCategory === 'LOOKS' ? 'bg-purple-600 text-white' : 'text-gray-500 hover:text-white hover:bg-gray-700'}`} title="Apariencia"><Eye className="w-6 h-6" /></button>
+                            <button onClick={() => setActiveCategory('SCENERY')} className={`p-3 rounded-lg ${activeCategory === 'SCENERY' ? 'bg-cyan-600 text-white' : 'text-gray-500 hover:text-white hover:bg-gray-700'}`} title="Escenario"><Grid className="w-6 h-6" /></button>
                             <button onClick={() => setActiveCategory('SOUND')} className={`p-3 rounded-lg ${activeCategory === 'SOUND' ? 'bg-pink-600 text-white' : 'text-gray-500 hover:text-white hover:bg-gray-700'}`} title="Sonido y FX"><Music className="w-6 h-6" /></button>
                             <button onClick={() => setActiveCategory('CONTROL')} className={`p-3 rounded-lg ${activeCategory === 'CONTROL' ? 'bg-orange-600 text-white' : 'text-gray-500 hover:text-white hover:bg-gray-700'}`} title="Control"><Settings className="w-6 h-6" /></button>
                             <button onClick={() => setActiveCategory('DATA')} className={`p-3 rounded-lg ${activeCategory === 'DATA' ? 'bg-green-600 text-white' : 'text-gray-500 hover:text-white hover:bg-gray-700'}`} title="Inventario y Listas"><List className="w-6 h-6" /></button>
@@ -351,6 +364,11 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({ objects, scenes, libra
                                         <BlockItem onPointerDown={handleBlockPointerDown} mode="ACTION" type="FLASH_EFFECT" label="Efecto Flash" color="bg-purple-600" icon={Sparkles} />
                                         <BlockItem onPointerDown={handleBlockPointerDown} mode="ACTION" type="SET_TEXT" label="Cambiar Texto" color="bg-purple-600" icon={Type} />
                                         <BlockItem onPointerDown={handleBlockPointerDown} mode="ACTION" type="SET_COLOR" label="Cambiar Color" color="bg-purple-600" icon={Palette} />
+                                    </SidebarSection>
+                                )}
+                                {activeCategory === 'SCENERY' && (
+                                    <SidebarSection title="Escenario" color="text-cyan-500">
+                                        <BlockItem onPointerDown={handleBlockPointerDown} mode="ACTION" type="SET_TILE" label="Cambiar Tile" color="bg-cyan-600" icon={Grid} />
                                     </SidebarSection>
                                 )}
                                 {activeCategory === 'SOUND' && (

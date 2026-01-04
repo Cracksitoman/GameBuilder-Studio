@@ -122,7 +122,8 @@ export type ActionType =
   | 'PUSH_TO_ARRAY'
   | 'REMOVE_FROM_ARRAY'
   | 'CLEAR_ARRAY'
-  | 'REPEAT_X_TIMES';
+  | 'REPEAT_X_TIMES'
+  | 'SET_TILE';
 
 export interface EventCondition {
   id: string;

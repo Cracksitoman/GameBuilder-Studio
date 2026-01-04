@@ -155,21 +155,24 @@ export const ObjectLibrary: React.FC<ObjectLibraryProps> = ({
       )}
 
       {/* Grid of Add Buttons */}
-      <div className="p-3 grid grid-cols-5 gap-2 bg-gray-900 border-b border-gray-800">
+      <div className="p-3 grid grid-cols-3 gap-2 bg-gray-900 border-b border-gray-800">
           <button onClick={() => onAddObject(ObjectType.SPRITE)} className="flex flex-col items-center justify-center p-2 bg-gray-800 hover:bg-gray-700 rounded-lg border border-gray-700 active:border-blue-500 transition-all group">
             <Box className="w-5 h-5 text-blue-400 mb-1" /><span className="text-[9px] text-gray-400">Bloque</span>
+          </button>
+          <button onClick={() => onAddObject(ObjectType.PLAYER)} className="flex flex-col items-center justify-center p-2 bg-gray-800 hover:bg-gray-700 rounded-lg border border-gray-700 active:border-green-500 transition-all group">
+            <User className="w-5 h-5 text-green-400 mb-1" /><span className="text-[9px] text-gray-400">Jugador</span>
+          </button>
+          <button onClick={() => onAddObject(ObjectType.TILEMAP)} className="flex flex-col items-center justify-center p-2 bg-gray-800 hover:bg-gray-700 rounded-lg border border-gray-700 active:border-cyan-500 transition-all group">
+            <Grid className="w-5 h-5 text-cyan-400 mb-1" /><span className="text-[9px] text-gray-400">Mapa Tiles</span>
+          </button>
+          <button onClick={() => onAddObject(ObjectType.ENEMY)} className="flex flex-col items-center justify-center p-2 bg-gray-800 hover:bg-gray-700 rounded-lg border border-gray-700 active:border-red-500 transition-all group">
+            <Ghost className="w-5 h-5 text-red-400 mb-1" /><span className="text-[9px] text-gray-400">Enemigo</span>
           </button>
           <button onClick={() => onAddObject(ObjectType.UI_BUTTON)} className="flex flex-col items-center justify-center p-2 bg-gray-800 hover:bg-gray-700 rounded-lg border border-gray-700 active:border-orange-500 transition-all group">
             <MonitorSmartphone className="w-5 h-5 text-orange-400 mb-1" /><span className="text-[9px] text-gray-400">Botón UI</span>
           </button>
           <button onClick={() => onAddObject(ObjectType.TEXT)} className="flex flex-col items-center justify-center p-2 bg-gray-800 hover:bg-gray-700 rounded-lg border border-gray-700 active:border-yellow-500 transition-all group">
             <Type className="w-5 h-5 text-yellow-400 mb-1" /><span className="text-[9px] text-gray-400">Texto</span>
-          </button>
-           <button onClick={() => onAddObject(ObjectType.PLAYER)} className="flex flex-col items-center justify-center p-2 bg-gray-800 hover:bg-gray-700 rounded-lg border border-gray-700 active:border-green-500 transition-all group">
-            <User className="w-5 h-5 text-green-400 mb-1" /><span className="text-[9px] text-gray-400">Jugador</span>
-          </button>
-           <button onClick={() => onAddObject(ObjectType.ENEMY)} className="flex flex-col items-center justify-center p-2 bg-gray-800 hover:bg-gray-700 rounded-lg border border-gray-700 active:border-red-500 transition-all group">
-            <Ghost className="w-5 h-5 text-red-400 mb-1" /><span className="text-[9px] text-gray-400">Enemigo</span>
           </button>
       </div>
       

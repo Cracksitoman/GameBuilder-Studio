@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { GameObject, ObjectType, BehaviorType, Behavior, AnimationClip, Variable, VariableType, Asset, EditorTool } from '../types';
 /* Removed WallIcon which was not exported from ./Icons */
-import { Layers, Move, Type, MousePointer2, X, Zap, Trash2, Activity, RotateCw, Plus, BrickWall, Compass, Crosshair, Magnet, Film, ImagePlus, ChevronDown, ChevronUp, Grid3x3, Hash, ToggleLeft, Variable as VariableIcon, Link2, Grid, Paintbrush, Eraser, MonitorSmartphone, Play, Settings, CheckSquare, Square, Code, Box, Scissors, Smartphone, List, Droplets } from './Icons';
+import { Layers, Move, Type, MousePointer2, X, Zap, Trash2, Activity, RotateCw, Plus, BrickWall, Compass, Crosshair, Magnet, Film, ImagePlus, ChevronDown, ChevronUp, Grid3x3, Hash, ToggleLeft, Variable as VariableIcon, Link2, Grid, Paintbrush, Eraser, MonitorSmartphone, Play, Settings, CheckSquare, Square, Code, Box, Scissors, Smartphone, List, Droplets, Star, Palette } from './Icons';
 
 interface PropertiesPanelProps {
   selectedObject: GameObject | null;
@@ -179,10 +179,22 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                      </div>
                  </div>
                  {currentTool === EditorTool.BRUSH && (
-                     <button onClick={() => onOpenAssetManager((url) => onSetBrush?.(EditorTool.BRUSH, typeof url === 'string' ? url : url[0]), 'GALLERY')} className="w-full flex items-center space-x-2 bg-gray-950 p-2 rounded border border-gray-700 text-[10px] text-gray-400">
-                         {activeBrushAsset ? <img src={activeBrushAsset.url} className="w-6 h-6 object-contain image-pixelated" /> : <div className="w-6 h-6 bg-gray-800 rounded" />}
-                         <span>{activeBrushAsset ? activeBrushAsset.name : 'Click para elegir sprite'}</span>
-                     </button>
+                     <div className="space-y-2">
+                        <button onClick={() => onOpenAssetManager((url) => onSetBrush?.(EditorTool.BRUSH, typeof url === 'string' ? url : url[0]), 'GALLERY')} className="w-full flex items-center space-x-2 bg-gray-950 p-2 rounded border border-gray-700 text-[10px] text-gray-400">
+                            {activeBrushAsset ? <img src={activeBrushAsset.url} className="w-6 h-6 object-contain image-pixelated" /> : <div className="w-6 h-6 bg-gray-800 rounded" />}
+                            <span>{activeBrushAsset ? activeBrushAsset.name : 'Click para elegir sprite'}</span>
+                        </button>
+                        
+                        <div className="flex items-center justify-between bg-gray-900 p-2 rounded border border-gray-700 cursor-pointer hover:bg-gray-850" onClick={() => onSetBrushSolid?.(!brushSolid)}>
+                            <label className="text-[10px] text-gray-400 uppercase font-bold flex items-center cursor-pointer">
+                                <BrickWall className={`w-3 h-3 mr-2 ${brushSolid ? 'text-red-400' : 'text-gray-600'}`} />
+                                Es Sólido (Pared)
+                            </label>
+                            <div className={`w-8 h-4 rounded-full relative transition-colors ${brushSolid ? 'bg-red-500' : 'bg-gray-700'}`}>
+                                <div className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full transition-transform ${brushSolid ? 'translate-x-4' : 'translate-x-0'}`} />
+                            </div>
+                        </div>
+                     </div>
                  )}
              </div>
         )}

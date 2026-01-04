@@ -74,11 +74,12 @@ export const EventActionModal: React.FC<EventActionModalProps> = ({
   ];
 
   const ACTION_OPTIONS = [
+    { id: 'CREATE_OBJECT', label: 'Crear Objeto (Disparar)', description: 'Spawnea una bala u otro objeto.', icon: <Crosshair className="w-5 h-5 text-green-400"/> },
+    { id: 'APPLY_FORCE', label: 'Aplicar Fuerza (Física)', description: 'Empuja un objeto en una dirección.', icon: <Wind className="w-5 h-5 text-indigo-400"/> },
     { id: 'PUSH_TO_ARRAY', label: 'Añadir a Lista (Inventario)', description: 'Agrega un elemento al final de una lista.', icon: <List className="w-5 h-5 text-green-400"/> },
     { id: 'REMOVE_FROM_ARRAY', label: 'Eliminar de Lista', description: 'Quita un elemento de una posición específica.', icon: <Trash2 className="w-5 h-5 text-orange-400"/> },
     { id: 'CLEAR_ARRAY', label: 'Vaciar Lista', description: 'Elimina todos los elementos de la lista.', icon: <RefreshCw className="w-5 h-5 text-red-400"/> },
     { id: 'REPEAT_X_TIMES', label: 'Bucle (Repetir)', description: 'Ejecuta acciones múltiples veces.', icon: <RefreshCw className="w-5 h-5 text-blue-400"/> },
-    { id: 'CREATE_OBJECT', label: 'Crear Objeto', description: 'Spawnea un nuevo objeto.', icon: <Crosshair className="w-5 h-5 text-green-400"/> },
     { id: 'DESTROY', label: 'Destruir objeto', description: 'Elimina un objeto del juego.', icon: <Trash2 className="w-5 h-5 text-red-400"/> },
     { id: 'MODIFY_VARIABLE', label: 'Modificar Variable', description: 'Cambia el valor de una variable.', icon: <Hash className="w-5 h-5 text-pink-400"/> },
     { id: 'CHANGE_SCENE', label: 'Cambiar de Escena', description: 'Carga otro nivel.', icon: <Clapperboard className="w-5 h-5 text-orange-500"/> },
@@ -170,6 +171,67 @@ export const EventActionModal: React.FC<EventActionModalProps> = ({
                         <div className="h-px bg-gray-800"></div>
 
                         <div className="space-y-4">
+                            {/* --- CONDICIONES --- */}
+                            {selectedType === 'TOUCH_INTERACTION' && (
+                                <div className="space-y-3">
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Tipo de Interacción</label>
+                                        <select value={params.subtype || 'CLICK'} onChange={e => updateParam('subtype', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-white">
+                                            <option value="CLICK">Tocar / Clic (Tap)</option>
+                                            <option value="DOUBLE_CLICK">Doble Tocar (Double Tap)</option>
+                                            <option value="LONG_PRESS">Mantener Pulsado</option>
+                                            <option value="DRAG">Arrastrar (Drag)</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* --- ACCIONES --- */}
+                            {selectedType === 'CREATE_OBJECT' && (
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Objeto a Crear</label>
+                                        <select value={params.sourceObjectId || ''} onChange={e => updateParam('sourceObjectId', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-white">
+                                            <option value="">-- Seleccionar de Librería --</option>
+                                            {library.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Punto de Aparición</label>
+                                        <select value={params.spawnOrigin || 'SELF'} onChange={e => updateParam('spawnOrigin', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-white">
+                                            <option value="SELF">Posición del Creador (Aquí)</option>
+                                            <option value="OTHER">Posición del Otro Objeto</option>
+                                        </select>
+                                        <p className="text-[10px] text-gray-500 mt-2">El nuevo objeto heredará la rotación del creador.</p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {selectedType === 'APPLY_FORCE' && (
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Aplicar a...</label>
+                                        <select value={params.target || 'SELF'} onChange={e => updateParam('target', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-white">
+                                            <option value="SELF">Este Objeto (Yo)</option>
+                                            <option value="OTHER">El Otro / Último Creado (Bala)</option>
+                                        </select>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Fuerza X</label>
+                                            <input type="number" value={params.forceX || 0} onChange={e => updateParam('forceX', parseFloat(e.target.value))} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-white" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Fuerza Y</label>
+                                            <input type="number" value={params.forceY || 0} onChange={e => updateParam('forceY', parseFloat(e.target.value))} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-white" />
+                                        </div>
+                                    </div>
+                                    <p className="text-[10px] text-gray-500">
+                                        Tip: Si aplicas fuerza X positiva y el objeto está rotado, la fuerza se aplicará <strong>en dirección a la rotación</strong> (hacia adelante).
+                                    </p>
+                                </div>
+                            )}
+
                             {selectedType === 'PUSH_TO_ARRAY' && (
                                 <div className="space-y-3">
                                     {renderVariableSelector('varId', true)}
@@ -195,21 +257,7 @@ export const EventActionModal: React.FC<EventActionModalProps> = ({
                             )}
                             
                             {selectedType === 'CLEAR_ARRAY' && renderVariableSelector('varId', true)}
-
-                            {/* ... (Previous configurations kept) */}
-                            {selectedType === 'TOUCH_INTERACTION' && (
-                                <div className="space-y-3">
-                                    <div>
-                                        <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Tipo de Interacción</label>
-                                        <select value={params.subtype || 'CLICK'} onChange={e => updateParam('subtype', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-white">
-                                            <option value="CLICK">Tocar / Clic (Tap)</option>
-                                            <option value="DOUBLE_CLICK">Doble Tocar</option>
-                                            <option value="LONG_PRESS">Mantener Pulsado</option>
-                                            <option value="DRAG">Arrastrar (Drag)</option>
-                                        </select>
-                                    </div>
-                                </div>
-                            )}
+                            
                             {selectedType === 'COLLISION' && (
                                 <div>
                                     <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Choca con...</label>

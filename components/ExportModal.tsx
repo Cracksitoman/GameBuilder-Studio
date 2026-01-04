@@ -47,7 +47,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, gameD
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Mi Juego - GameBuilder</title>
+    <title>Mi Juego - Koda Engine</title>
     <style>
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         body { margin: 0; background: #000; overflow: hidden; width: 100vw; height: 100vh; color: white; font-family: system-ui, sans-serif; touch-action: none; user-select: none; -webkit-user-select: none; display: flex; align-items: center; justify-content: center; }
@@ -76,12 +76,15 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, gameD
         <div class="virtual-btn" data-key="action">A</div>
     </div>
     <script>
-        const gameData = { objects: ${JSON.stringify(gameData.objects)}, canvasConfig: ${JSON.stringify(gameData.canvasConfig)} };
+        const gameData = { objects: ${JSON.stringify(gameData.objects)}, library: ${JSON.stringify(gameData.library || [])}, canvasConfig: ${JSON.stringify(gameData.canvasConfig)} };
         const { width, height } = gameData.canvasConfig;
         let objects = JSON.parse(JSON.stringify(gameData.objects)).map(o => ({ ...o, vx: 0, vy: 0, isGrounded: false, isFollowing: false }));
         let cameraX = 0, cameraY = 0;
         const inputs = { left: false, right: false, up: false, down: false, action: false, tiltX: 0, tiltY: 0 };
         const objectElements = {}; let lastTime = performance.now(); let isGameRunning = false;
+
+        // Simplified UUID generation
+        function uuid() { return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) { var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8); return v.toString(16); }); }
 
         function checkRectCollision(r1, r2) {
             return (r1.x < r2.x + r2.width && r1.x + r1.width > r2.x && r1.y < r2.y + r2.height && r1.y + r1.height > r2.y);
@@ -102,31 +105,44 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, gameD
             return false;
         }
 
+        function createElementForObject(obj) {
+            const el = document.createElement('div'); el.className = 'obj';
+            el.id = 'el-' + obj.id;
+            el.style.width = obj.width + 'px'; el.style.height = obj.height + 'px';
+            el.style.backgroundColor = (obj.type !== 'TEXT' && obj.type !== 'TILEMAP') ? obj.color : 'transparent';
+            el.style.zIndex = obj.zIndex; el.style.opacity = obj.opacity;
+            if(obj.type === 'TEXT') { el.innerText = obj.name; el.style.color = obj.color; el.style.whiteSpace = 'nowrap'; }
+            if(obj.type === 'TILEMAP' && obj.tilemap && obj.tilemap.tiles) {
+                Object.entries(obj.tilemap.tiles).forEach(([k, d]) => {
+                    const [gx, gy] = k.split(',').map(Number);
+                    const t = document.createElement('div'); t.style.position = 'absolute'; 
+                    t.style.left = (gx*obj.tilemap.tileSize)+'px'; t.style.top = (gy*obj.tilemap.tileSize)+'px';
+                    t.style.width = obj.tilemap.tileSize+'px'; t.style.height = obj.tilemap.tileSize+'px';
+                    const url = typeof d === 'string' ? d : d.url;
+                    t.style.backgroundImage = 'url('+url+')'; 
+                    t.style.backgroundSize = 'contain';
+                    t.style.backgroundRepeat = 'no-repeat';
+                    t.style.imageRendering = 'pixelated';
+                    el.appendChild(t);
+                });
+            }
+            if(obj.previewSpriteUrl && obj.type !== 'TILEMAP') el.style.backgroundImage = 'url('+obj.previewSpriteUrl+')';
+            if(!obj.visible) el.style.display = 'none';
+            (obj.isGui ? document.getElementById('gui-layer') : document.getElementById('world-layer')).appendChild(el);
+            objectElements[obj.id] = el;
+            
+            // Interaction setup
+            el.addEventListener('pointerdown', () => { obj.isPointerDown = true; obj.downStartTime = Date.now(); });
+            el.addEventListener('pointerup', () => { 
+                obj.lastClickTime = Date.now();
+                obj.isPointerDown = false; 
+            });
+        }
+
         function init() {
             document.getElementById('stage-area').style.width = width + 'px';
             document.getElementById('stage-area').style.height = height + 'px';
-            objects.forEach(obj => {
-                const el = document.createElement('div'); el.className = 'obj';
-                el.style.width = obj.width + 'px'; el.style.height = obj.height + 'px';
-                el.style.backgroundColor = (obj.type !== 'TEXT' && obj.type !== 'TILEMAP') ? obj.color : 'transparent';
-                el.style.zIndex = obj.zIndex; el.style.opacity = obj.opacity;
-                if(obj.type === 'TEXT') { el.innerText = obj.name; el.style.color = obj.color; el.style.whiteSpace = 'nowrap'; }
-                if(obj.type === 'TILEMAP') {
-                    Object.entries(obj.tilemap.tiles).forEach(([k, d]) => {
-                        const [gx, gy] = k.split(',').map(Number);
-                        const t = document.createElement('div'); t.style.position = 'absolute'; 
-                        t.style.left = (gx*obj.tilemap.tileSize)+'px'; t.style.top = (gy*obj.tilemap.tileSize)+'px';
-                        t.style.width = obj.tilemap.tileSize+'px'; t.style.height = obj.tilemap.tileSize+'px';
-                        const url = typeof d === 'string' ? d : d.url;
-                        t.style.backgroundImage = 'url('+url+')'; t.style.backgroundSize = 'contain';
-                        el.appendChild(t);
-                    });
-                }
-                if(obj.previewSpriteUrl && obj.type !== 'TILEMAP') el.style.backgroundImage = 'url('+obj.previewSpriteUrl+')';
-                if(!obj.visible) el.style.display = 'none';
-                (obj.isGui ? document.getElementById('gui-layer') : document.getElementById('world-layer')).appendChild(el);
-                objectElements[obj.id] = el;
-            });
+            objects.forEach(obj => createElementForObject(obj));
             setupInput(); resize(); requestAnimationFrame(loop);
         }
 
@@ -158,9 +174,61 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, gameD
             const player = objects.find(o => o.type === 'PLAYER');
 
             objects.forEach(obj => {
+                if(obj.events) {
+                    obj.events.forEach(ev => {
+                        let conditionMet = true;
+                        for(let cond of ev.conditions) {
+                            if(cond.type === 'TOUCH_INTERACTION') {
+                                if(cond.parameters.subtype === 'CLICK' && !(obj.isPointerDown === true)) conditionMet = false;
+                                if(cond.parameters.subtype === 'DOUBLE_CLICK' && !(obj.isPointerDown === true && (Date.now() - (obj.lastClickTime||0) < 300))) conditionMet = false;
+                            }
+                        }
+                        
+                        if(conditionMet) {
+                            let lastCreatedObj = null;
+                            for(let act of ev.actions) {
+                                if(act.type === 'CREATE_OBJECT') {
+                                    const proto = gameData.library.find(l => l.id === act.parameters.sourceObjectId);
+                                    if(proto) {
+                                        const newObj = { ...JSON.parse(JSON.stringify(proto)), id: uuid(), x: obj.x, y: obj.y, rotation: obj.rotation, vx: 0, vy: 0 };
+                                        objects.push(newObj);
+                                        createElementForObject(newObj);
+                                        lastCreatedObj = newObj;
+                                    }
+                                }
+                                if(act.type === 'APPLY_FORCE') {
+                                    const target = act.parameters.target === 'OTHER' ? lastCreatedObj : obj;
+                                    if(target) {
+                                        let fx = act.parameters.forceX || 0;
+                                        let fy = act.parameters.forceY || 0;
+                                        if (target.rotation !== 0) {
+                                            const rad = (target.rotation * Math.PI) / 180;
+                                            const rotX = fx * Math.cos(rad) - fy * Math.sin(rad);
+                                            const rotY = fx * Math.sin(rad) + fy * Math.cos(rad);
+                                            fx = rotX; fy = rotY;
+                                        }
+                                        target.vx += fx; target.vy += fy;
+                                    }
+                                }
+                                if(act.type === 'DESTROY') {
+                                    const target = act.parameters.target === 'OTHER' ? lastCreatedObj : obj;
+                                    if(target) { target.visible = false; const el = document.getElementById('el-'+target.id); if(el) el.style.display='none'; }
+                                }
+                            }
+                        }
+                        if(obj.isPointerDown) obj.isPointerDown = false; // Reset instant click
+                    });
+                }
+
                 if(!obj.behaviors) return;
                 let { x, y, vx, vy, isGrounded } = obj;
                 obj.behaviors.forEach(b => {
+                    if(b.type === 'PROJECTILE') {
+                        const s = b.properties.speed || 400;
+                        const rad = (obj.rotation * Math.PI) / 180;
+                        x += (Math.cos(rad) * s + vx) * dt;
+                        y += (Math.sin(rad) * s + vy) * dt;
+                    }
                     if(b.type === 'TOPDOWN') {
                         const s = b.properties.speed || 200;
                         let mx=0, my=0;
