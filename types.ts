@@ -66,11 +66,10 @@ export interface Variable {
 }
 
 export interface TextBinding {
+  enabled: boolean;
   source: 'GLOBAL' | 'LOCAL' | 'OBJECT';
-  variableId: string;
+  variableName: string;
   targetObjectId?: string;
-  prefix?: string;
-  suffix?: string;
 }
 
 export type ConditionType = 
@@ -84,7 +83,8 @@ export type ConditionType =
   | 'IS_MOVING'
   | 'IS_VISIBLE'
   | 'COMPARE_POSITION'
-  | 'ARRAY_CONTAINS';
+  | 'ARRAY_CONTAINS'
+  | string; 
 
 export type ActionType = 
   | 'DESTROY' 
@@ -123,7 +123,8 @@ export type ActionType =
   | 'REMOVE_FROM_ARRAY'
   | 'CLEAR_ARRAY'
   | 'REPEAT_X_TIMES'
-  | 'SET_TILE';
+  | 'SET_TILE'
+  | string; 
 
 export interface EventCondition {
   id: string;
@@ -238,4 +239,32 @@ export interface EditorState {
   selectedObjectId: string | null;
   zoom: number;
   isPreviewing: boolean;
+}
+
+export interface PluginBlockParam {
+    name: string;
+    type: 'string' | 'number' | 'boolean' | 'select' | 'scene';
+    label?: string;
+    default?: any;
+    options?: { label: string; value: string }[]; 
+}
+
+export interface PluginBlockDef {
+    type: string;
+    label: string;
+    category: string; 
+    mode: 'ACTION' | 'CONDITION';
+    icon?: string; 
+    params: PluginBlockParam[];
+    color?: string; 
+}
+
+export interface Plugin {
+    id: string;
+    name: string;
+    author: string;
+    version: string;
+    description: string;
+    blocks: PluginBlockDef[];
+    code: string; 
 }

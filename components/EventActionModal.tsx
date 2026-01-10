@@ -1,8 +1,8 @@
-
 import React, { useState, useEffect } from 'react';
-import { GameObject, Scene, Variable } from '../types';
-import { X, Check, MousePointer2 } from './Icons';
+import { GameObject, Scene, Variable, Plugin, Asset } from '../types';
+import { X, Check, MousePointer2, Cpu } from './Icons';
 import { CONDITION_OPTIONS, ACTION_OPTIONS } from '../logic/eventDefinitions';
+import { renderBlockContent } from '../logic/blocks/renderer'; 
 
 interface EventActionModalProps {
   isOpen: boolean;
@@ -15,10 +15,12 @@ interface EventActionModalProps {
   onSave: (type: string, params: Record<string, any>) => void;
   library?: GameObject[]; 
   globalVariables?: Variable[];
+  plugins?: Plugin[];
+  assets?: Asset[];
 }
 
 export const EventActionModal: React.FC<EventActionModalProps> = ({ 
-  isOpen, mode, objects, initialType, initialParams, onClose, onSave, library = []
+  isOpen, mode, objects, initialType, initialParams, onClose, onSave, library = [], globalVariables = [], plugins = [], scenes = [], assets = []
 }) => {
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [params, setParams] = useState<Record<string, any>>({});
@@ -34,12 +36,23 @@ export const EventActionModal: React.FC<EventActionModalProps> = ({
 
   const updateParam = (key: string, value: any) => setParams(prev => ({ ...prev, [key]: value }));
 
-  // Lista para que el usuario elija el objeto "ancla" donde aparecerá el nuevo objeto
   const allAvailableObjects = [...library, ...objects].filter((obj, index, self) => 
     index === self.findIndex((t) => (t.id === obj.id || (t.prototypeId && t.prototypeId === obj.prototypeId)))
   );
 
-  const options = mode === 'CONDITION' ? CONDITION_OPTIONS : ACTION_OPTIONS;
+  const pluginOptions = plugins.flatMap(p => 
+        p.blocks
+            .filter(b => b.mode === mode)
+            .map(b => ({
+                id: b.type,
+                label: b.label,
+                description: `Plugin: ${p.name}`,
+                icon: <Cpu className="w-5 h-5 text-teal-400"/>,
+                isPlugin: true
+            }))
+  );
+
+  const options = [...(mode === 'CONDITION' ? CONDITION_OPTIONS : ACTION_OPTIONS), ...pluginOptions];
   const currentOption = options.find(o => o.id === selectedType);
 
   return (
@@ -68,51 +81,38 @@ export const EventActionModal: React.FC<EventActionModalProps> = ({
           <div className="w-2/3 bg-gray-950 p-6 overflow-y-auto">
             {currentOption ? (
               <div className="space-y-6">
-                <h4 className="text-xl font-bold text-white">{currentOption.label}</h4>
+                <h4 className="text-xl font-bold text-white mb-6 flex items-center space-x-2">
+                    {currentOption.icon}
+                    <span>{currentOption.label}</span>
+                </h4>
+                
                 <div className="space-y-4">
-                  {selectedType === 'CREATE_OBJECT' && (
-                    <div className="space-y-4 animate-in slide-in-from-bottom-2">
-                      <div>
-                        <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Objeto a crear</label>
-                        <select value={params.sourceObjectId || ''} onChange={e => updateParam('sourceObjectId', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-white">
-                          <option value="">-- Seleccionar de Librería --</option>
-                          {library.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
-                        </select>
+                  
+                  {/* PLUGIN RENDERER - Usamos el mismo renderizador que en el editor de bloques para consistencia */}
+                  {(currentOption as any).isPlugin ? (
+                      <div className="bg-teal-900/10 border border-teal-500/30 p-4 rounded-xl">
+                          <label className="block text-xs font-bold text-teal-400 uppercase mb-3">Parámetros del Plugin</label>
+                          <div className="text-sm font-bold text-white">
+                            {renderBlockContent(
+                                selectedType!, 
+                                params, 
+                                (p) => setParams(prev => ({...prev, ...p})), 
+                                { library, scenes, globalVariables, plugins, selectedObject: null, assets }
+                            )}
+                          </div>
                       </div>
-                      <div>
-                        <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Punto de aparición</label>
-                        <select value={params.spawnOrigin || 'SELF'} onChange={e => updateParam('spawnOrigin', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-white">
-                          <option value="SELF">En este mismo objeto</option>
-                          <option value="SPECIFIC">En la posición de otro objeto...</option>
-                        </select>
-                      </div>
-                      {params.spawnOrigin === 'SPECIFIC' && (
-                        <div className="p-4 bg-blue-900/10 border border-blue-500/30 rounded-xl animate-in slide-in-from-top-2">
-                          <label className="block text-xs font-bold text-blue-400 uppercase mb-2">Seleccionar objeto origen</label>
-                          <select value={params.spawnTargetId || ''} onChange={e => updateParam('spawnTargetId', e.target.value)} className="w-full bg-gray-900 border border-blue-500/50 rounded-lg p-3 text-white">
-                            <option value="">-- Seleccionar --</option>
-                            {allAvailableObjects.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
-                          </select>
-                          <p className="text-[10px] text-gray-500 mt-2 italic">* El objeto se creará donde se encuentre el objeto seleccionado.</p>
-                        </div>
-                      )}
+                  ) : (
+                    /* NATIVE RENDERERS VIA BLOCK RENDERER */
+                    <div className="animate-in slide-in-from-bottom-2">
+                        {renderBlockContent(
+                            selectedType!, 
+                            params, 
+                            (p) => setParams(prev => ({...prev, ...p})), 
+                            { library, scenes, globalVariables, plugins, selectedObject: null, assets }
+                        )}
                     </div>
                   )}
-                  {selectedType === 'EVERY_X_SECONDS' && (
-                    <div>
-                      <label className="block text-xs font-bold text-gray-400 mb-2">Intervalo (segundos)</label>
-                      <input type="number" step="0.1" value={params.interval || 1} onChange={e => updateParam('interval', parseFloat(e.target.value))} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-white"/>
-                    </div>
-                  )}
-                  {selectedType === 'COLLISION' && (
-                    <div>
-                      <label className="block text-xs font-bold text-gray-400 mb-2">Choca con</label>
-                      <select value={params.targetId || ''} onChange={e => updateParam('targetId', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-white">
-                        <option value="">-- Seleccionar Objeto --</option>
-                        {allAvailableObjects.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
-                      </select>
-                    </div>
-                  )}
+                  
                 </div>
               </div>
             ) : (
@@ -124,7 +124,7 @@ export const EventActionModal: React.FC<EventActionModalProps> = ({
           </div>
         </div>
 
-        <div className="p-4 border-t border-gray-800">
+        <div className="p-4 border-t border-gray-800 bg-gray-950">
           <button onClick={() => selectedType && onSave(selectedType, params)} disabled={!selectedType} className={`w-full py-4 rounded-xl font-bold transition-all ${selectedType ? 'bg-green-600 hover:bg-green-500 text-white shadow-lg' : 'bg-gray-800 text-gray-600 cursor-not-allowed'}`}>
             <Check className="w-5 h-5 mx-auto" />
           </button>

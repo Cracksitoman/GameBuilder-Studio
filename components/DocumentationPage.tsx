@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Book, Code, Box, Wind, MonitorSmartphone, Hash, Sidebar, ArrowLeft, Menu, Smartphone } from './Icons';
+import { Book, Code, Box, Wind, MonitorSmartphone, Hash, Sidebar, ArrowLeft, Menu, Smartphone, Cpu, FileJson, Layers } from './Icons';
 
 interface DocumentationPageProps {
   onBack: () => void;
@@ -33,7 +33,7 @@ export const DocumentationPage: React.FC<DocumentationPageProps> = ({ onBack }) 
   const CodeBlock = ({ code }: { code: string }) => (
     <div className="bg-gray-950 border border-gray-800 rounded-lg p-4 font-mono text-sm text-gray-300 overflow-x-auto my-4 relative group shadow-inner">
       <pre>{code.trim()}</pre>
-      <div className="absolute top-2 right-2 text-[10px] text-gray-600 uppercase font-bold bg-gray-900 px-2 py-1 rounded">JS</div>
+      <div className="absolute top-2 right-2 text-[10px] text-gray-600 uppercase font-bold bg-gray-900 px-2 py-1 rounded">JSON / JS</div>
     </div>
   );
 
@@ -91,6 +91,8 @@ export const DocumentationPage: React.FC<DocumentationPageProps> = ({ onBack }) 
             <TabButton id="MOBILE" label="Desarrollo Móvil" icon={Smartphone} />
             <TabButton id="VARS" label="Variables" icon={Hash} />
             <TabButton id="API" label="Referencia API" icon={Code} />
+            <div className="h-px bg-gray-800 my-2 mx-2"></div>
+            <TabButton id="PLUGINS" label="Crear Plugins" icon={Cpu} />
           </div>
         </div>
 
@@ -385,6 +387,106 @@ if (me.localVars.Vida <= 0) {
                     </div>
                 </div>
               </div>
+            )}
+
+            {activeTab === 'PLUGINS' && (
+                <div className="space-y-8 animate-in slide-in-from-right-4 duration-300">
+                    <div className="border-b border-gray-800 pb-4">
+                        <h1 className="text-3xl sm:text-4xl font-black text-white mb-2">Desarrollo de Plugins</h1>
+                        <p className="text-lg sm:text-xl text-gray-400">Extiende el motor creando tus propios bloques y lógica.</p>
+                    </div>
+
+                    <div className="prose prose-invert max-w-none">
+                        <p className="text-gray-300">
+                            Koda Engine permite cargar funcionalidades extra mediante archivos <code>.json</code>. 
+                            Un plugin define nuevos bloques visuales para el editor y el código JavaScript que se ejecuta cuando se usan.
+                        </p>
+
+                        <h3 className="text-2xl font-bold text-white mt-8">Estructura del Archivo JSON</h3>
+                        <p className="text-gray-300">
+                            Crea un archivo con la extensión <code>.json</code> con la siguiente estructura básica:
+                        </p>
+                        <CodeBlock code={`
+{
+  "id": "mi-plugin-unico",
+  "name": "Nombre del Plugin",
+  "author": "Tu Nombre",
+  "version": "1.0.0",
+  "description": "Descripción corta de lo que hace.",
+  "blocks": [
+      // Aquí van las definiciones de los bloques visuales
+  ],
+  "code": " ...código javascript minificado o en una línea... "
+}
+                        `} />
+
+                        <h3 className="text-2xl font-bold text-white mt-8">Definiendo Bloques (`blocks`)</h3>
+                        <p className="text-gray-300">
+                            La propiedad <code>blocks</code> es una lista de objetos que definen cómo se ven tus bloques en el editor.
+                        </p>
+                        <ul className="list-disc list-inside text-gray-400 mb-4 ml-4 space-y-2">
+                            <li><strong>type:</strong> Identificador único (ej. "TELEPORT").</li>
+                            <li><strong>mode:</strong> "ACTION" (bloque azul) o "CONDITION" (bloque amarillo).</li>
+                            <li><strong>label:</strong> Texto visible.</li>
+                            <li><strong>params:</strong> Lista de inputs que rellenará el usuario.</li>
+                        </ul>
+
+                        <CodeBlock code={`
+"blocks": [
+    {
+      "type": "SUPER_JUMP",
+      "label": "Ejecutar Super Salto",
+      "mode": "ACTION",
+      "params": [
+        { "name": "fuerza", "type": "number", "default": 800, "label": "Potencia" }
+      ]
+    }
+]
+                        `} />
+
+                        <h3 className="text-2xl font-bold text-white mt-8">Escribiendo la Lógica (`code`)</h3>
+                        <p className="text-gray-300">
+                            El campo <code>code</code> contiene todo tu JavaScript en una sola cadena de texto. 
+                            Este código se ejecuta cada vez que el motor encuentra uno de tus bloques.
+                        </p>
+                        
+                        <div className="bg-gray-800 p-4 rounded-xl border border-gray-700 my-4">
+                            <h4 className="font-bold text-white mb-2">Variables Disponibles en tu Código:</h4>
+                            <ul className="text-sm text-gray-300 space-y-1 font-mono">
+                                <li><span className="text-blue-400">type</span>: El ID del bloque que se está ejecutando (ej. "SUPER_JUMP").</li>
+                                <li><span className="text-blue-400">params</span>: Objeto con los valores que puso el usuario (ej. <code>params.fuerza</code>).</li>
+                                <li><span className="text-blue-400">obj</span>: El objeto del juego que ejecuta la acción (igual que 'me').</li>
+                                <li><span className="text-blue-400">dt</span>: Delta Time.</li>
+                            </ul>
+                        </div>
+
+                        <h3 className="text-2xl font-bold text-white mt-8">Ejemplo Completo: Plugin de Teletransporte</h3>
+                        <p className="text-gray-300 mb-2">
+                            Copia este JSON, guárdalo como <code>teleport.json</code> e impórtalo en el editor de Bloques.
+                        </p>
+                        <CodeBlock code={`
+{
+  "id": "teleport-plugin",
+  "name": "Teletransporte",
+  "author": "KodaDev",
+  "version": "1.0",
+  "description": "Permite mover un objeto instantáneamente.",
+  "blocks": [
+    {
+      "type": "TELEPORT_TO",
+      "label": "Teletransportar a",
+      "mode": "ACTION",
+      "params": [
+        { "name": "x", "type": "number", "default": 0, "label": "X" },
+        { "name": "y", "type": "number", "default": 0, "label": "Y" }
+      ]
+    }
+  ],
+  "code": "if (type === 'TELEPORT_TO') { obj.x = params.x; obj.y = params.y; }"
+}
+                        `} />
+                    </div>
+                </div>
             )}
 
           </div>

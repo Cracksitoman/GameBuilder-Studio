@@ -1,9 +1,7 @@
-
 import React from 'react';
-import { Play, Save, Share2, Undo, Redo } from './Icons';
+import { Play, Save, Download, Undo, Redo } from './Icons';
 
-// Custom SVG Koda Logo
-const KodaLogo = ({ className = "w-8 h-8" }) => (
+const KodaLogo = ({ className = "w-6 h-6" }) => (
   <svg viewBox="0 0 100 100" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
     <rect x="20" y="30" width="60" height="45" rx="8" fill="url(#paint0_linear)" />
     <rect x="28" y="42" width="44" height="22" rx="4" fill="#1F1F1F" />
@@ -32,70 +30,34 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ 
-  onPreview, 
-  onSave, 
-  onQuickSave,
-  onUndo,
-  onRedo,
-  canUndo,
-  canRedo
+  onPreview, onSave, onQuickSave, onUndo, onRedo, canUndo, canRedo
 }) => {
   return (
-    <nav className="h-14 bg-gray-900 border-b border-gray-700 flex items-center justify-between px-4 select-none z-40 relative">
-      <div className="flex items-center space-x-2">
-        <KodaLogo className="w-9 h-9" />
-        <span className="font-black text-xl tracking-tighter text-white hidden sm:inline">KODA <span className="text-orange-500 font-light">ENGINE</span></span>
+    <nav className="h-11 bg-gray-900 border-b border-gray-700 flex items-center justify-between px-2 select-none relative z-[100] overflow-hidden shrink-0">
+      <div className="flex items-center space-x-1.5 shrink-0">
+        <KodaLogo />
+        <span className="font-black text-[11px] tracking-tighter text-white hidden xs:inline uppercase">KODA <span className="text-orange-500 font-light">ENG</span></span>
       </div>
 
-      <div className="flex items-center space-x-4">
-        {/* Undo / Redo Controls */}
-        <div className="flex bg-gray-800 rounded-lg p-0.5 border border-gray-700">
-            <button 
-                onClick={onUndo} 
-                disabled={!canUndo}
-                className={`p-1.5 rounded transition-colors ${canUndo ? 'text-gray-300 hover:text-white hover:bg-gray-700' : 'text-gray-600 cursor-not-allowed'}`}
-                title="Deshacer (Ctrl+Z)"
-            >
-                <Undo className="w-4 h-4" />
-            </button>
-            <div className="w-px bg-gray-700 my-1"></div>
-            <button 
-                onClick={onRedo} 
-                disabled={!canRedo}
-                className={`p-1.5 rounded transition-colors ${canRedo ? 'text-gray-300 hover:text-white hover:bg-gray-700' : 'text-gray-600 cursor-not-allowed'}`}
-                title="Rehacer (Ctrl+Y)"
-            >
-                <Redo className="w-4 h-4" />
-            </button>
+      <div className="flex items-center space-x-1.5">
+        <div className="flex bg-gray-800 rounded-md p-0.5 border border-gray-700">
+            <button onClick={onUndo} disabled={!canUndo} className={`p-1 rounded ${canUndo ? 'text-gray-300' : 'text-gray-600'}`}><Undo className="w-3.5 h-3.5" /></button>
+            <button onClick={onRedo} disabled={!canRedo} className={`p-1 rounded ${canRedo ? 'text-gray-300' : 'text-gray-600'}`}><Redo className="w-3.5 h-3.5" /></button>
         </div>
 
         <button 
           onClick={onPreview}
-          className="flex items-center space-x-2 px-6 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-full transition-colors text-sm font-bold shadow-lg shadow-orange-900/30 active:scale-95"
+          className="flex items-center space-x-1 px-3 py-1 bg-orange-600 hover:bg-orange-700 text-white rounded-full text-[10px] font-black shadow-lg transition-transform active:scale-95 uppercase"
         >
-          <Play className="w-4 h-4 fill-current" />
+          <Play className="w-3 h-3 fill-current" />
           <span>Jugar</span>
         </button>
       </div>
 
-      <div className="flex items-center space-x-2">
-        <button 
-          onClick={onQuickSave}
-          className="flex items-center space-x-2 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-200 hover:text-white rounded-lg border border-gray-600 transition-colors text-xs"
-          title="Guardar Proyecto (.gbs)"
-        >
-          <Save className="w-4 h-4" />
-          <span className="hidden sm:inline">Guardar</span>
-        </button>
-
-        <button 
-          onClick={onSave}
-          className="flex items-center space-x-2 px-3 py-1.5 bg-orange-900/40 hover:bg-orange-800 text-orange-200 hover:text-white rounded-lg border border-orange-800/50 transition-colors text-xs"
-          title="Exportar Juego (APK/HTML)"
-        >
-          <Share2 className="w-4 h-4" />
-          <span className="hidden sm:inline">Exportar</span>
-        </button>
+      <div className="flex items-center space-x-1">
+        <button onClick={onQuickSave} className="p-1.5 bg-gray-800 text-gray-300 rounded-md border border-gray-700 hover:bg-gray-700 transition-colors" title="Guardar Proyecto Local"><Save className="w-3.5 h-3.5" /></button>
+        {/* Cambiado: Eliminado 'hidden xs:block' para que sea visible siempre */}
+        <button onClick={onSave} className="p-1.5 bg-blue-900/40 text-blue-200 rounded-md border border-blue-800/50 hover:bg-blue-900/60 transition-colors" title="Exportar Juego"><Download className="w-3.5 h-3.5" /></button>
       </div>
     </nav>
   );

@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Asset } from '../types';
 import { X, UploadCloud, Paintbrush, Grid3x3, Trash2, Eraser, Save, PaintBucket, Check, Palette, ChevronLeft, Download, ZoomIn, ZoomOut, Plus, Maximize, Volume2, Music, Scissors, ImagePlus, Hand, Star, MousePointerSquareDashed, Undo, Redo } from './Icons';
@@ -455,10 +454,11 @@ export const AssetManagerModal: React.FC<AssetManagerModalProps> = ({
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        if (onAddAsset) onAddAsset({ id: crypto.randomUUID(), name: file.name.split('.')[0].substring(0, 16), url: reader.result as string, type: file.type.startsWith('audio') ? 'audio' : 'image' });
+        if (onAddAsset) onAddAsset({ id: crypto.randomUUID(), name: file.name.split('.')[0].substring(0, 16), url: reader.result as string, type: file.type.startsWith('audio') || file.name.endsWith('.mp3') || file.name.endsWith('.wav') ? 'audio' : 'image' });
       };
       reader.readAsDataURL(file);
     }
+    e.target.value = ''; // Reset input to allow re-uploading same file if needed
   };
 
   const handleDownloadAsset = (asset: Asset) => {
@@ -522,7 +522,7 @@ export const AssetManagerModal: React.FC<AssetManagerModalProps> = ({
                     <button onClick={() => fileInputRef.current?.click()} className="flex flex-col items-center justify-center p-6 bg-gray-900 border border-gray-800 hover:border-blue-500 rounded-xl group transition-all">
                         <div className="w-12 h-12 bg-blue-900/20 rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition-transform"><UploadCloud className="w-6 h-6 text-blue-400" /></div>
                         <span className="text-sm font-bold text-gray-200">Subir Archivo</span>
-                        <input ref={fileInputRef} type="file" accept={allowedTypes.includes('audio') ? "image/*,audio/*" : "image/*"} className="hidden" onChange={handleUpload} />
+                        <input ref={fileInputRef} type="file" accept="image/*,audio/*,.mp3,.wav,.ogg" className="hidden" onChange={handleUpload} />
                     </button>
                 </div>
                 <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-3">
@@ -537,13 +537,15 @@ export const AssetManagerModal: React.FC<AssetManagerModalProps> = ({
                                 >
                                     <Download className="w-3 h-3" />
                                 </button>
+                                {asset.type === 'image' && (
                                 <button 
-                                    onClick={(e) => { e.stopPropagation(); if(asset.type==='image') loadSpriteForEditing(asset); }} 
+                                    onClick={(e) => { e.stopPropagation(); loadSpriteForEditing(asset); }} 
                                     className="p-1.5 bg-blue-600 hover:bg-blue-500 rounded text-white"
                                     title="Editar"
                                 >
                                     <Paintbrush className="w-3 h-3" />
                                 </button>
+                                )}
                                 <button 
                                     onClick={(e) => { 
                                         e.stopPropagation(); 

@@ -1,32 +1,21 @@
+import React, { useRef, useState } from 'react';
+import { Rocket, FileUp, Sparkles, Plus, Book, FolderOpen, Clock } from './Icons';
+import { NewProjectDialog } from './NewProjectDialog';
 
-import React, { useRef } from 'react';
-import { Rocket, FileUp, Sparkles, Plus, Book } from './Icons';
-
-const KodaLogoBig = ({ className = "w-32 h-32" }) => (
-  <svg viewBox="0 0 100 100" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect x="20" y="30" width="60" height="45" rx="8" fill="url(#paint0_linear_big)" />
-    <rect x="28" y="42" width="44" height="22" rx="4" fill="#1F1F1F" />
-    <rect x="35" y="48" width="10" height="10" rx="1" fill="#4ADE80" />
-    <rect x="55" y="48" width="10" height="10" rx="1" fill="#4ADE80" />
-    <rect x="30" y="20" width="10" height="12" rx="2" fill="#F97316" />
-    <rect x="60" y="20" width="10" height="12" rx="2" fill="#F97316" />
-    <rect x="30" y="75" width="40" height="10" rx="2" fill="#9A3412" />
-    <defs>
-      <linearGradient id="paint0_linear_big" x1="50" y1="30" x2="50" y2="75" gradientUnits="userSpaceOnUse">
-        <stop stopColor="#FB923C" />
-        <stop offset="1" stopColor="#EA580C" />
-      </linearGradient>
-    </defs>
-  </svg>
+const KodaIcon = () => (
+  <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center">
+    <span className="text-black font-black text-2xl">K</span>
+  </div>
 );
 
 interface StartScreenProps {
-  onNewProject: () => void;
+  onNewProject: (config: { name: string, orientation: 'LANDSCAPE' | 'PORTRAIT' }) => void;
   onLoadProject: (file: File) => void;
-  onOpenDocs: () => void;
+  onOpenDocs?: () => void; 
 }
 
 export const StartScreen: React.FC<StartScreenProps> = ({ onNewProject, onLoadProject, onOpenDocs }) => {
+  const [showNewProject, setShowNewProject] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -38,103 +27,78 @@ export const StartScreen: React.FC<StartScreenProps> = ({ onNewProject, onLoadPr
   };
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white font-sans flex items-center justify-center relative overflow-hidden">
-      
-      <div className="absolute inset-0 z-0">
-         <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-orange-900/10 via-gray-950 to-gray-950"></div>
-         <div className="absolute inset-0 opacity-10" 
-              style={{backgroundImage: 'linear-gradient(#444 1px, transparent 1px), linear-gradient(90deg, #444 1px, transparent 1px)', backgroundSize: '40px 40px'}}>
+    <div className="min-h-screen bg-[#0f1014] text-white font-sans flex items-center justify-center p-4">
+      {/* Main Card */}
+      <div className="w-full max-w-md bg-[#18181b] border border-gray-800 rounded-3xl p-8 shadow-2xl relative overflow-hidden animate-in fade-in zoom-in-95 duration-500">
+         
+         {/* Header */}
+         <div className="flex items-center space-x-3 mb-2">
+            <KodaIcon />
+            <h1 className="text-3xl font-black tracking-tighter text-white">KODA</h1>
          </div>
-      </div>
+         
+         <p className="text-gray-400 text-sm mb-4">Crea juegos increíbles, en cualquier lugar.</p>
+         
+         <div className="inline-block bg-[#27272a] text-gray-400 text-[10px] font-bold px-2 py-1 rounded mb-8 border border-gray-700">
+            BETA v0.1.0
+         </div>
 
-      <div className="relative z-10 w-full max-w-6xl p-6 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-        
-        <div className="space-y-8 animate-in slide-in-from-left-10 duration-700 fade-in">
-           <div className="flex items-center space-x-4 mb-4">
-              <KodaLogoBig className="w-20 h-20" />
-              <div className="inline-flex items-center space-x-2 bg-orange-900/30 border border-orange-500/30 rounded-full px-3 py-1 text-xs font-bold text-orange-300">
-                 <Sparkles className="w-3 h-3" />
-                 <span>v2.5 - Professional Edition</span>
-              </div>
-           </div>
-           
-           <div className="space-y-2">
-              <h1 className="text-6xl md:text-8xl font-black tracking-tighter text-white">
-                 KODA
-                 <span className="block text-orange-500">ENGINE</span>
-              </h1>
-              <p className="text-gray-400 text-lg max-w-md">
-                 El motor de juegos definitivo para Android. Crea experiencias asombrosas sin límites.
-              </p>
-           </div>
-
-           <div className="flex flex-col sm:flex-row gap-4 pt-4">
-              <button 
-                onClick={onNewProject}
-                className="group relative px-8 py-4 bg-orange-600 hover:bg-orange-500 rounded-2xl font-bold text-lg shadow-xl shadow-orange-900/20 transition-all transform hover:scale-105 active:scale-95 flex items-center justify-center overflow-hidden"
-              >
-                 <Plus className="w-6 h-6 mr-2" />
-                 Nuevo Proyecto
-              </button>
-
-              <button 
+         {/* Actions */}
+         <div className="space-y-3 mb-10">
+            <button 
+                onClick={() => setShowNewProject(true)}
+                className="w-full bg-[#f97316] hover:bg-[#ea580c] text-white font-bold py-3 rounded-xl flex items-center justify-center transition-all shadow-lg shadow-orange-900/20 active:scale-95"
+            >
+                <Plus className="w-5 h-5 mr-2" />
+                Crear Nuevo Proyecto
+            </button>
+            
+            <button 
                 onClick={() => fileInputRef.current?.click()}
-                className="px-8 py-4 bg-gray-800 hover:bg-gray-700 border border-gray-700 hover:border-gray-500 rounded-2xl font-bold text-lg text-gray-200 transition-all transform hover:scale-105 active:scale-95 flex items-center justify-center"
-              >
-                 <FileUp className="w-6 h-6 mr-2 text-gray-400" />
-                 Cargar Proyecto
-              </button>
-              
-              <button 
+                className="w-full bg-[#27272a] hover:bg-[#3f3f46] text-white font-bold py-3 rounded-xl flex items-center justify-center transition-all border border-gray-700 active:scale-95"
+            >
+                <FolderOpen className="w-5 h-5 mr-2 text-gray-400" />
+                Abrir Proyecto
+            </button>
+            <input ref={fileInputRef} type="file" accept=".gbs" className="hidden" onChange={handleFileChange} />
+
+            <button 
                 onClick={onOpenDocs}
-                className="px-4 py-4 bg-gray-900 hover:bg-gray-800 border border-gray-800 hover:border-gray-600 rounded-2xl font-bold text-lg text-gray-400 hover:text-white transition-all transform hover:scale-105 active:scale-95 flex items-center justify-center"
-                title="Documentación"
-              >
-                 <Book className="w-6 h-6" />
-              </button>
+                className="w-full bg-[#27272a] hover:bg-[#3f3f46] text-white font-bold py-3 rounded-xl flex items-center justify-center transition-all border border-gray-700 active:scale-95"
+            >
+                <Book className="w-5 h-5 mr-2 text-blue-400" />
+                Documentación
+            </button>
+         </div>
 
-              <input 
-                type="file" 
-                ref={fileInputRef} 
-                onChange={handleFileChange} 
-                accept="*/*" 
-                className="hidden" 
-              />
-           </div>
-        </div>
+         {/* Footer Info */}
+         <div className="text-[10px] text-gray-600 mb-6 text-center">
+             © 2024 Koda Engine Team.
+         </div>
 
-        <div className="relative animate-in slide-in-from-right-10 duration-700 fade-in delay-100 hidden lg:block">
-           <div className="absolute -top-10 -right-10 w-64 h-64 bg-orange-500/10 rounded-full blur-3xl"></div>
-           
-           <div className="bg-gray-900/60 backdrop-blur-xl border border-gray-800 rounded-3xl p-6 shadow-2xl relative overflow-hidden">
-               <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-xl font-bold flex items-center text-orange-400">
-                     <Rocket className="w-5 h-5 mr-2" />
-                     Koda News
-                  </h3>
-               </div>
+         {/* Recents Section */}
+         <div>
+             <div className="flex items-center space-x-2 mb-2">
+                 <Clock className="w-3 h-3 text-gray-500" />
+                 <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Recientes</span>
+             </div>
+             <div className="border border-dashed border-gray-800 rounded-xl h-32 flex flex-col items-center justify-center text-gray-600 bg-[#131316]">
+                 <FolderOpen className="w-8 h-8 mb-2 opacity-20" />
+                 <span className="text-xs">No hay proyectos recientes.</span>
+                 <span className="text-[10px] opacity-50">Crea uno nuevo para empezar.</span>
+             </div>
+         </div>
 
-               <div className="space-y-4">
-                  <div className="p-4 bg-gray-800/50 rounded-xl border border-gray-700/50">
-                      <span className="text-sm font-bold text-orange-300">Bienvenido a Koda</span>
-                      <p className="text-xs text-gray-400 mt-1">
-                         Ahora con editor de scripts en tiempo real. ¡Programa tus juegos directamente!
-                      </p>
-                  </div>
-                  <div className="p-4 bg-gray-800/50 rounded-xl border border-gray-700/50">
-                      <span className="text-sm font-bold text-green-300">Documentación Integrada</span>
-                      <p className="text-xs text-gray-400 mt-1">
-                         Aprende a usar la API con ejemplos de código.
-                      </p>
-                  </div>
-               </div>
-               
-               <div className="mt-8 pt-4 border-t border-gray-800 text-center">
-                  <p className="text-[10px] text-gray-500 font-mono tracking-widest uppercase">KODA ENGINE SYSTEM v2.5.0</p>
-               </div>
-           </div>
-        </div>
       </div>
+
+      <NewProjectDialog 
+        isOpen={showNewProject} 
+        onClose={() => setShowNewProject(false)} 
+        onCreate={(name, orientation) => {
+            onNewProject({ name, orientation });
+            setShowNewProject(false);
+        }}
+      />
     </div>
   );
 };

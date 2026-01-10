@@ -108,7 +108,8 @@ import {
   Map,
   List,
   Star,
-  MousePointerSquareDashed
+  MousePointerSquareDashed,
+  Clock
 } from 'lucide-react';
 
 export {
@@ -220,5 +221,6 @@ export {
   Map,
   List,
   Star,
-  MousePointerSquareDashed
+  MousePointerSquareDashed,
+  Clock
 };

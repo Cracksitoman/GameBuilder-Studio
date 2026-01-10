@@ -1,7 +1,6 @@
-
 import React, { useState, useRef, useEffect } from 'react';
-import { GameObject, ObjectType, Scene, Variable } from '../types';
-import { Puzzle, Box, User, Zap, ChevronLeft, ChevronRight, Trash2, ArrowDown, Menu, LayoutList, List, Grid3x3, X } from './Icons';
+import { GameObject, ObjectType, Scene, Variable, Plugin, Asset } from '../types';
+import { Puzzle, Box, User, Zap, ChevronLeft, ChevronRight, Trash2, ArrowDown, Menu, LayoutList, List, Grid3x3, X, UploadCloud, Cpu } from './Icons';
 import { BLOCK_CATEGORIES, BLOCKS_CATALOG, BlockCategory } from '../logic/blocks/definitions';
 import { getBlockDefaults } from '../logic/blocks/defaults';
 import { renderBlockContent } from '../logic/blocks/renderer';
@@ -12,15 +11,19 @@ interface BlockEditorProps {
     scenes: Scene[];
     library: GameObject[];
     globalVariables: Variable[];
+    plugins?: Plugin[];
+    assets?: Asset[];
     onUpdateObject: (id: string, updates: Partial<GameObject>) => void;
+    onImportPlugin?: (plugin: Plugin) => void;
 }
 
-export const BlockEditor: React.FC<BlockEditorProps> = ({ objects, scenes, library, globalVariables, onUpdateObject }) => {
+export const BlockEditor: React.FC<BlockEditorProps> = ({ objects, scenes, library, globalVariables, plugins = [], assets = [], onUpdateObject, onImportPlugin }) => {
     const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
     const [activeCategory, setActiveCategory] = useState<BlockCategory>('EVENTS');
     const [draggingBlock, setDraggingBlock] = useState<any>(null);
     const [pointerPos, setPointerPos] = useState({ x: 0, y: 0 });
     const [dropTarget, setDropTarget] = useState<{ type: string, eventId?: string } | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Estados de visibilidad de paneles (cerrados por defecto en móvil para dar espacio)
     const [isLibraryOpen, setIsLibraryOpen] = useState(window.innerWidth >= 1024);
@@ -39,6 +42,27 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({ objects, scenes, libra
         if (window.innerWidth < 1024) setIsLibraryOpen(false);
     };
 
+    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file && onImportPlugin) {
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                try {
+                    const plugin = JSON.parse(ev.target?.result as string);
+                    if (plugin.id && plugin.blocks && plugin.code) {
+                        onImportPlugin(plugin);
+                    } else {
+                        alert("Formato de plugin inválido.");
+                    }
+                } catch(err) {
+                    alert("Error al leer el archivo. Asegúrate de que es un JSON válido.");
+                }
+            };
+            reader.readAsText(file);
+        }
+        e.target.value = '';
+    };
+
     const handleBlockPointerDown = (e: React.PointerEvent, blockData: any) => {
         const target = e.currentTarget as HTMLElement;
         try { target.setPointerCapture(e.pointerId); } catch (err) {}
@@ -46,7 +70,6 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({ objects, scenes, libra
         setDraggingBlock(blockData);
         setPointerPos({ x: e.clientX, y: e.clientY });
 
-        // MEJORA UX MÓVIL: Al empezar a arrastrar, ocultamos los paneles para ver la zona de soltado
         setIsPaletteOpen(false);
         setIsLibraryOpen(false);
 
@@ -69,7 +92,13 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({ objects, scenes, libra
             const currentObj = selectedObjectRef.current;
 
             if (finalTarget && currentObj) {
-                const defaults = getBlockDefaults(blockData.type, library, scenes);
+                let defaults = getBlockDefaults(blockData.type, library, scenes);
+                if (Object.keys(defaults).length === 0 && blockData.params) {
+                    blockData.params.forEach((p: any) => {
+                        defaults[p.name] = p.default !== undefined ? p.default : (p.type === 'number' ? 0 : '');
+                    });
+                }
+
                 if (finalTarget.type === 'NEW_EVENT' && blockData.mode === 'CONDITION') {
                     const newEv = { 
                         id: crypto.randomUUID(), 
@@ -98,10 +127,20 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({ objects, scenes, libra
         window.addEventListener('pointerup', onUp);
     };
 
+    const mergedCategories = [...BLOCK_CATEGORIES];
+    if (plugins.length > 0) {
+        mergedCategories.push({ id: 'CUSTOM' as any, label: 'Extensions', color: 'text-teal-500' });
+    }
+
+    const getCurrentBlocks = () => {
+        if (activeCategory === 'CUSTOM' as any) {
+            return plugins.flatMap(p => p.blocks.map(b => ({ ...b, color: p.blocks[0].color || 'bg-teal-600', icon: Cpu })));
+        }
+        return BLOCKS_CATALOG[activeCategory] || [];
+    };
+
     return (
         <div className="flex flex-col w-full h-full bg-[#111] overflow-hidden select-none touch-none relative">
-            
-            {/* BARRA SUPERIOR DE CONTROL (HEADER) */}
             <div className="h-14 bg-[#252526] border-b border-black flex items-center px-4 justify-between shrink-0 z-[60] shadow-lg">
                 <div className="flex items-center space-x-2 overflow-hidden">
                     <button 
@@ -119,6 +158,12 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({ objects, scenes, libra
                 </div>
 
                 <div className="flex items-center space-x-2">
+                    <button onClick={() => fileInputRef.current?.click()} className="flex items-center space-x-1 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 rounded text-[10px] text-gray-300 border border-gray-600">
+                        <UploadCloud className="w-3 h-3" />
+                        <span className="hidden sm:inline">Importar Plugin</span>
+                    </button>
+                    <input ref={fileInputRef} type="file" accept="*/*" className="hidden" onChange={handleFileUpload} />
+
                     {selectedObjectId && (
                         <button 
                             onClick={() => setIsPaletteOpen(!isPaletteOpen)}
@@ -134,8 +179,6 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({ objects, scenes, libra
             </div>
 
             <div className="flex-1 flex relative overflow-hidden">
-                
-                {/* PANEL 1: LIBRERÍA DE OBJETOS (DRAWER) */}
                 <div 
                     className={`absolute inset-y-0 left-0 z-50 flex transition-transform duration-300 ease-in-out ${isLibraryOpen ? 'translate-x-0' : '-translate-x-full'} lg:relative lg:translate-x-0 ${!isLibraryOpen && 'lg:hidden'}`}
                     style={{ width: window.innerWidth < 640 ? '80%' : '260px' }}
@@ -158,30 +201,27 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({ objects, scenes, libra
                     </div>
                 </div>
 
-                {/* PANEL 2: PALETA DE BLOQUES (DRAWER) */}
                 {selectedObject && (
                     <div 
                         className={`absolute inset-y-0 left-0 lg:left-0 z-40 flex transition-transform duration-300 ease-in-out ${isPaletteOpen ? 'translate-x-0' : '-translate-x-full'} lg:relative lg:translate-x-0 ${!isPaletteOpen && 'lg:hidden'}`}
                         style={{ width: window.innerWidth < 640 ? '85%' : '300px', marginLeft: isLibraryOpen && window.innerWidth >= 1024 ? '0' : '0' }}
                     >
                         <div className="flex-1 flex flex-row bg-[#2a2d2e] border-r border-black shadow-2xl overflow-hidden">
-                            {/* Selector de Categorías Lateral */}
                             <div className="w-14 bg-black/40 flex flex-col items-center py-4 space-y-4 border-r border-white/5 shrink-0">
-                                {BLOCK_CATEGORIES.map(cat => (
+                                {mergedCategories.map(cat => (
                                     <button key={cat.id} onClick={() => setActiveCategory(cat.id)} className={`p-2.5 rounded-xl transition-all ${activeCategory === cat.id ? 'bg-orange-600 text-white scale-110 shadow-lg' : 'text-gray-500 hover:text-gray-300'}`}>
                                         <Zap className="w-5 h-5" />
                                     </button>
                                 ))}
                             </div>
-                            {/* Lista de Bloques */}
                             <div className="flex-1 flex flex-col bg-black/10 overflow-hidden">
                                 <div className="p-4 border-b border-white/5">
-                                    <h3 className={`text-[9px] font-black uppercase tracking-widest ${BLOCK_CATEGORIES.find(c => c.id === activeCategory)?.color}`}>
-                                        {BLOCK_CATEGORIES.find(c => c.id === activeCategory)?.label}
+                                    <h3 className={`text-[9px] font-black uppercase tracking-widest ${mergedCategories.find(c => c.id === activeCategory)?.color}`}>
+                                        {mergedCategories.find(c => c.id === activeCategory)?.label}
                                     </h3>
                                 </div>
                                 <div className="flex-1 overflow-y-auto p-3 custom-scrollbar touch-pan-y space-y-1.5">
-                                    {(BLOCKS_CATALOG[activeCategory] || []).map((b:any) => (
+                                    {getCurrentBlocks().map((b:any) => (
                                         <BlockPaletteItem key={b.type} {...b} onPointerDown={handleBlockPointerDown} />
                                     ))}
                                 </div>
@@ -190,7 +230,6 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({ objects, scenes, libra
                     </div>
                 )}
 
-                {/* AREA DE TRABAJO (CENTRAL) */}
                 <div 
                     className={`flex-1 bg-[#1e1e1e] flex flex-col relative transition-colors duration-200 overflow-hidden ${dropTarget?.type === 'NEW_EVENT' ? 'bg-yellow-500/5' : ''}`} 
                     data-drop-zone="NEW_EVENT"
@@ -217,7 +256,7 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({ objects, scenes, libra
                                                         {renderBlockContent(c.type, c.parameters, (p) => {
                                                             const nEv = selectedObject.events.map(ev => ev.id === event.id ? { ...ev, conditions: ev.conditions.map(con => con.id === c.id ? { ...con, parameters: { ...con.parameters, ...p } } : con) } : ev);
                                                             onUpdateObject(selectedObject.id, { events: nEv });
-                                                        }, { library, scenes, globalVariables })}
+                                                        }, { library, scenes, globalVariables, plugins, selectedObject, assets })}
                                                     </div>
                                                 ))}
                                             </div>
@@ -235,7 +274,7 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({ objects, scenes, libra
                                                             {renderBlockContent(a.type, a.parameters, (p) => {
                                                                 const nEv = selectedObject.events.map(ev => ev.id === event.id ? { ...ev, actions: ev.actions.map(act => act.id === a.id ? { ...act, parameters: { ...act.parameters, ...p } } : act) } : ev);
                                                                 onUpdateObject(selectedObject.id, { events: nEv });
-                                                            }, { library, scenes, globalVariables })}
+                                                            }, { library, scenes, globalVariables, plugins, selectedObject, assets })}
                                                         </div>
                                                         <button onClick={() => {
                                                             const nEv = selectedObject.events.map(ev => ev.id === event.id ? { ...ev, actions: ev.actions.filter(act => act.id !== a.id) } : ev);
@@ -269,13 +308,11 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({ objects, scenes, libra
                     </div>
                 </div>
 
-                {/* Overlays para cerrar al tocar fuera en móvil */}
                 {(isLibraryOpen || isPaletteOpen) && window.innerWidth < 1024 && (
                     <div className="absolute inset-0 bg-black/60 z-30 animate-in fade-in" onClick={() => { setIsLibraryOpen(false); setIsPaletteOpen(false); }} />
                 )}
             </div>
 
-            {/* BLOQUE FANTASMA */}
             {draggingBlock && (
                 <div 
                     className={`fixed z-[1000] px-4 py-3 rounded-2xl shadow-2xl ${draggingBlock.color} text-white font-bold text-xs pointer-events-none ring-4 ring-white/20 flex items-center space-x-2 animate-in fade-in zoom-in-95`} 

@@ -21,6 +21,7 @@ export const BLOCK_CATEGORIES: { id: BlockCategory, label: string, color: string
 
 export const BLOCKS_CATALOG = {
     EVENTS: [
+        { type: 'ALWAYS', label: 'Siempre (Verificación)', color: 'bg-yellow-600', icon: RefreshCw, mode: 'CONDITION' },
         { type: 'START_OF_SCENE', label: 'Al empezar nivel', color: 'bg-yellow-600', icon: Play, mode: 'CONDITION' },
         { type: 'TOUCH_INTERACTION', label: 'Interacción Táctil', color: 'bg-yellow-600', icon: Hand, mode: 'CONDITION' },
         { type: 'COLLISION', label: 'Al chocar con...', color: 'bg-yellow-600', icon: Box, mode: 'CONDITION' },
@@ -53,6 +54,7 @@ export const BLOCKS_CATALOG = {
         { type: 'CHANGE_SCENE', label: 'Ir a Escena', color: 'bg-orange-600', icon: Navigation, mode: 'ACTION' },
     ],
     DATA: [
+        { type: 'COMPARE_VARIABLE', label: 'Verificar Var', color: 'bg-yellow-700', icon: Hash, mode: 'CONDITION' },
         { type: 'MODIFY_VARIABLE', label: 'Modificar Var', color: 'bg-green-600', icon: Hash, mode: 'ACTION' },
         { type: 'PUSH_TO_ARRAY', label: 'Añadir a Lista', color: 'bg-green-600', icon: List, mode: 'ACTION' },
     ],

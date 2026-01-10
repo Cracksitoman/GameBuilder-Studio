@@ -27,6 +27,21 @@
         color: #f3f4f6;
         overflow: hidden; /* Prevent body scroll, let containers scroll */
       }
+      /* Hide scrollbar for toolbar but keep functionality */
+      .scrollbar-hide::-webkit-scrollbar {
+        display: none;
+      }
+      .scrollbar-hide {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+      /* CLASE CRÍTICA PARA PIXEL ART NÍTIDO */
+      .pixelated {
+        image-rendering: -moz-crisp-edges;
+        image-rendering: -webkit-crisp-edges;
+        image-rendering: pixelated;
+        image-rendering: crisp-edges;
+      }
     </style>
   <script type="importmap">
 {
